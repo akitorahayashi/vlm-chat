@@ -1,0 +1,40 @@
+# dependencies
+node_modules
+
+# testing
+/coverage
+playwright-report/
+test-results/
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# database
+/data
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# environment
+.env*
+!.env.example
+
+# misc
+.DS_Store
+*.pem
+.tmp
+
+# debug
+bun-error.log*
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# prisma
+/src/generated/prisma

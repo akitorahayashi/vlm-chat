@@ -1,0 +1,17 @@
+{
+  "ignore": {
+    "rules": [],
+    "files": ["playwright-report/**", "scripts/**"],
+    "overrides": []
+  },
+  "lint": true,
+  "deadCode": true,
+  "verbose": false,
+  "blocking": "none",
+  "customRulesOnly": false,
+  "share": false,
+  "textComponents": [],
+  "rawTextWrapperComponents": [],
+  "respectInlineDisables": true,
+  "adoptExistingLintConfig": true
+}

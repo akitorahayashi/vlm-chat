@@ -1,0 +1,15 @@
+generator client {
+  provider   = "prisma-client"
+  output     = "../src/generated/prisma"
+  runtime    = "bun"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Greeting {
+  key     String @id
+  message String
+}

@@ -1,0 +1,30 @@
+name: Run Tests
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Run ${{ matrix.test-type }} Tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test-type: [unit, integration]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+
+      - name: Run tests
+        env:
+          TEST_TYPE: ${{ matrix.test-type }}
+        run: bun run "test:${TEST_TYPE}"

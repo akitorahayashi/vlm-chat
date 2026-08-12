@@ -1,0 +1,61 @@
+{
+  "name": "next-bun",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "engines": {
+    "bun": ">=1.3.14 <2"
+  },
+  "scripts": {
+    "dev": "bun --bun next dev",
+    "build": "bun --bun next build",
+    "start": "bun --bun next start",
+    "postinstall": "bunx --bun prisma generate",
+    "setup": "bun scripts/setup.ts",
+    "check": "bunx --bun biome check . && bun run typecheck",
+    "fix": "bunx --bun biome check --write .",
+    "typecheck": "bunx --bun prisma generate && bun --bun next typegen && bunx --bun tsc --noEmit",
+    "test": "bun test",
+    "test:unit": "bun test src/",
+    "test:integration": "bun test tests/integration",
+    "test:coverage": "bun test --coverage",
+    "test:system": "bunx --bun playwright test",
+    "test:system:ui": "bunx --bun playwright test --ui",
+    "db:setup": "bun scripts/local-database.ts setup",
+    "db:seed": "bun prisma/seed.ts",
+    "db:migrate": "bun scripts/local-database.ts migrate",
+    "db:reset": "bun scripts/local-database.ts reset",
+    "db:studio": "bun scripts/local-database.ts studio",
+    "turso:migrate": "bun scripts/turso-migrate.ts",
+    "turso:health": "bun scripts/turso-health.ts",
+    "prepare": "bunx --bun husky"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.3",
+    "@prisma/adapter-libsql": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "next": "16.2.11",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
+    "@playwright/test": "^1.60.0",
+    "@tailwindcss/postcss": "^4.3.0",
+    "@types/bun": "^1.3.0",
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prisma": "^7.8.0",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.9.3"
+  },
+  "trustedDependencies": ["@prisma/engines", "esbuild", "prisma", "sharp"],
+  "lint-staged": {
+    "*": ["biome check --write --no-errors-on-unmatched"]
+  }
+}

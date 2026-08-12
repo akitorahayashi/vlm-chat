@@ -1,0 +1,27 @@
+name: Run Static Checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    name: Check and Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+
+      - name: Run repository checks
+        run: bun run check
+
+      - name: Build production application
+        run: bun run build

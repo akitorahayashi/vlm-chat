@@ -1,0 +1,30 @@
+name: Run System Tests
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  system-tests:
+    name: Run System Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+
+      - name: Install Playwright browsers
+        run: bunx --bun playwright install --with-deps chromium firefox webkit
+
+      - name: Prepare local database
+        run: bun run db:setup && bun run db:seed
+
+      - name: Run system tests
+        run: bun run test:system

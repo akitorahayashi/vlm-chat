@@ -1,0 +1,15 @@
+[install]
+minimumReleaseAge = 259200
+
+[test]
+pathIgnorePatterns = [
+  "references/**",
+  "docs/**",
+  ".tmp/**",
+  "tests/system/**"
+]
+coverageSkipTestFiles = true
+coveragePathIgnorePatterns = ["src/generated/**", "tests/system/**"]
+
+[test.reporter]
+dots = true
