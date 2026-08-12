@@ -23,8 +23,5 @@ jobs:
       - name: Install Playwright browsers
         run: bunx --bun playwright install --with-deps chromium firefox webkit
 
-      - name: Prepare local database
-        run: bun run db:setup && bun run db:seed
-
       - name: Run system tests
         run: bun run test:system

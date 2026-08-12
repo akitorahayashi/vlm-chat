@@ -38,3 +38,8 @@ next-env.d.ts
 
 # prisma
 /src/generated/prisma
+
+# python
+/inference/.venv
+__pycache__/
+*.py[cod]

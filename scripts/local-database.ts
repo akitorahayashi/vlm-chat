@@ -1,20 +1,10 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { getDatabaseEnvironment } from '../src/lib/environment.ts';
-
-function getLocalDatabaseUrl() {
-  const environment = getDatabaseEnvironment();
-
-  if (environment.kind !== 'sqlite') {
-    throw new Error('This command targets local SQLite only.');
-  }
-
-  return environment.databaseUrl;
-}
+import { getDatabaseUrl } from '../src/lib/environment.ts';
 
 function getDatabasePaths() {
-  const databaseUrl = getLocalDatabaseUrl();
+  const databaseUrl = getDatabaseUrl();
   const relativePath = databaseUrl
     .replace(/^(file:|sqlite:)/, '')
     .split('?')[0]
@@ -56,13 +46,11 @@ function resetDatabase() {
   }
 
   runBun(['x', '--bun', 'prisma', 'migrate', 'deploy']);
-  runBun(['run', 'db:seed']);
 }
 
 function main() {
   const [command, ...args] = process.argv.slice(2);
 
-  getLocalDatabaseUrl();
   ensureDatabaseDirectory();
 
   switch (command) {

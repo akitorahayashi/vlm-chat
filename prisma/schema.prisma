@@ -9,7 +9,54 @@ datasource db {
   provider = "sqlite"
 }
 
-model Greeting {
-  key     String @id
-  message String
+model Conversation {
+  id        String    @id @default(cuid())
+  title     String
+  modelId   String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+
+  @@index([updatedAt])
+}
+
+/// role and status are String rather than enum because the SQLite connector
+/// does not support Prisma enums. Their domains are enforced by the zod unions
+/// in src/lib/chat-event.ts and src/features/completion/parse.ts.
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  /// Turn order within a conversation. createdAt cannot own this: it is
+  /// millisecond-resolution and a user turn plus its assistant turn are written
+  /// close enough together to tie.
+  sequence       Int
+  role           String
+  content        String       @default("")
+  reasoning      String?
+  status         String
+  errorMessage   String?
+  modelId        String?
+  finishReason   String?
+  /// The seed sent upstream for this turn. mlx-vlm defaults seed to 0, so a
+  /// turn is only reproducible if the value that produced it is recorded.
+  seed           Int?
+  createdAt      DateTime     @default(now())
+  completedAt    DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  attachments    Attachment[]
+
+  @@unique([conversationId, sequence])
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  messageId String
+  position  Int
+  mimeType  String
+  data      Bytes
+  byteSize  Int
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, position])
 }

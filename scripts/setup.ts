@@ -22,4 +22,3 @@ if (!existsSync('.env')) {
 runBun(['install', '--frozen-lockfile']);
 runBun(['x', '--bun', 'playwright', 'install']);
 runBun(['run', 'db:setup']);
-runBun(['run', 'db:seed']);

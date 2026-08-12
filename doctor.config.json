@@ -1,12 +1,12 @@
 {
   "ignore": {
     "rules": [],
-    "files": ["playwright-report/**", "scripts/**"],
+    "files": ["playwright-report/**", "scripts/**", "inference/**", "tests/**"],
     "overrides": []
   },
   "lint": true,
   "deadCode": true,
-  "verbose": false,
+  "verbose": true,
   "blocking": "none",
   "customRulesOnly": false,
   "share": false,

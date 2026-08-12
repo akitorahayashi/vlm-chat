@@ -1,0 +1,61 @@
+# Operations for the local inference server. Run from this directory.
+#
+# Nothing here knows about the web app: the boundary between them is the
+# OpenAI-compatible HTTP API this server exposes.
+
+host := "127.0.0.1"
+port := "8080"
+
+endpoint := "http://" + host + ":" + port
+
+_default:
+    @just --list
+
+# Install the pinned mlx-vlm environment.
+sync:
+    uv sync
+
+# The host is pinned on purpose: mlx-vlm defaults to 0.0.0.0 with open CORS,
+# which would publish every downloaded model to the whole network. No --model
+# is passed either, so the server loads whichever one a request names, and the
+# first request for a model waits while its weights are read from disk.
+
+# Serve every model in the local HuggingFace cache.
+serve:
+    uv run mlx_vlm.server --host {{host}} --port {{port}}
+
+# The web app never sends `enable_thinking`, so this only changes what a model
+# whose template does not open a reasoning block on its own will do. The
+# Qwen3-VL Thinking models do not need it.
+
+# Serve with thinking enabled by default.
+serve-thinking:
+    uv run mlx_vlm.server --host {{host}} --port {{port}} --enable-thinking
+
+# Report whether the server is up and which model it holds.
+health:
+    @curl -sf {{endpoint}}/health | jq '{status, loaded_model}'
+
+# List the models that can be served, which is whatever is in the cache.
+models:
+    @curl -sf {{endpoint}}/v1/models | jq -r '.data[].id'
+
+# Release the loaded model without stopping the server.
+unload:
+    @curl -sf -X POST {{endpoint}}/unload | jq -r '.message // .status'
+
+# The body is built by jq rather than by string interpolation: a prompt is
+# free text, and an apostrophe or a quote in it would otherwise end the shell
+# word or the JSON string.
+
+# Ask one question, to check generation end to end.
+ask model prompt="Reply with exactly: pong":
+    @jq -nc --arg model {{quote(model)}} --arg prompt {{quote(prompt)}} \
+        '{model: $model, messages: [{role: "user", content: $prompt}], max_tokens: 128}' \
+        | curl -sf {{endpoint}}/v1/chat/completions \
+            -H 'Content-Type: application/json' --data-binary @- \
+        | jq -r '.choices[0].message | (.reasoning_content // empty), (.content // empty)'
+
+# Download a model, after which it appears in `models`.
+download model:
+    uv run hf download {{quote(model)}}
