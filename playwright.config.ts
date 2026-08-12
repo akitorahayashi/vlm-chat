@@ -51,10 +51,6 @@ export default defineConfig({
       stderr: 'pipe',
     },
     {
-      // db:reset rather than db:setup: the specs name conversations by their
-      // title, so rows left by a previous run make a second run fail on
-      // titles it did not create.
-      //
       // --webpack for the same reason `bun run dev` uses it: Turbopack's dev server
       // cannot resolve the Prisma and libsql externals, so every page answers 500
       // and this server never becomes ready. See the note in README.

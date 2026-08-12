@@ -45,9 +45,9 @@ test('streams a reply, keeps the URL and survives a reload', async ({
   expect(consoleErrors).toEqual([]);
 });
 
-test('lists the conversation and deletes it', async ({ page }, testInfo) => {
+test('lists the conversation and deletes it', async ({ page }) => {
   const consoleErrors = collectConsoleErrors(page);
-  const title = `remember me ${testInfo.project.name} retry ${testInfo.retry}`;
+  const title = `remember me ${crypto.randomUUID()}`;
 
   await page.goto('/');
   await send(page, 'stub/echo', title);

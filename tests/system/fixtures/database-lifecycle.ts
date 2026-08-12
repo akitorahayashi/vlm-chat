@@ -20,7 +20,7 @@ async function clearSystemDatabase() {
   }
 }
 
-export default async function manageSystemDatabase() {
+export default async function clearSystemDatabaseAroundRun() {
   await clearSystemDatabase();
 
   return clearSystemDatabase;
