@@ -58,13 +58,9 @@ const MODEL_LIST_TIMEOUT_MS = 5_000;
 
 export async function fetchModelIds(signal?: AbortSignal) {
   const deadline = AbortSignal.timeout(MODEL_LIST_TIMEOUT_MS);
-  let attempt: Awaited<ReturnType<typeof request>>;
-
-  try {
-    attempt = await request('/v1/models', {
-      signal: signal ? AbortSignal.any([signal, deadline]) : deadline,
-    });
-  } catch (error) {
+  const { response, endpoint } = await request('/v1/models', {
+    signal: signal ? AbortSignal.any([signal, deadline]) : deadline,
+  }).catch((error: unknown) => {
     if (deadline.aborted && !signal?.aborted) {
       throw new Error(
         `The inference server at ${getInferenceEndpoint()} did not answer within ${MODEL_LIST_TIMEOUT_MS / 1000} seconds.`,
@@ -72,9 +68,8 @@ export async function fetchModelIds(signal?: AbortSignal) {
     }
 
     throw error;
-  }
+  });
 
-  const { response, endpoint } = attempt;
   const parsed = modelListSchema.safeParse(await response.json());
 
   if (!parsed.success) {

@@ -23,16 +23,6 @@ function withOmissionNotice(message: HistoryMessage) {
     : notice;
 }
 
-function lastUserIndex(history: HistoryMessage[]) {
-  for (let index = history.length - 1; index >= 0; index -= 1) {
-    if (history[index].role === 'user') {
-      return index;
-    }
-  }
-
-  return -1;
-}
-
 /**
  * Image parts are emitted for the newest user turn only.
  *
@@ -49,7 +39,9 @@ function lastUserIndex(history: HistoryMessage[]) {
 export function buildCompletionMessages(
   history: HistoryMessage[],
 ): CompletionMessage[] {
-  const newestUser = lastUserIndex(history);
+  const newestUser = history.findLastIndex(
+    (message) => message.role === 'user',
+  );
 
   return history.map((message, index) => {
     if (message.role === 'assistant') {

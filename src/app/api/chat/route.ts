@@ -12,6 +12,7 @@ import { appendUserMessage } from '@/features/message/append';
 import { startAssistantMessage } from '@/features/message/start';
 import { isAbortError } from '@/lib/abort-error';
 import { encodeChatEvents } from '@/lib/chat-event';
+import { describeError } from '@/lib/describe-error';
 import { getInferenceEndpoint } from '@/lib/environment';
 import { openChatCompletion } from '@/lib/inference/client';
 import { buildChatCompletionRequest, drawSeed } from '@/lib/inference/request';
@@ -110,11 +111,7 @@ export async function POST(request: Request) {
         return new Response(null, { status: 499 });
       }
 
-      return reject(
-        error instanceof Error ? error.message : String(error),
-        502,
-        conversation.id,
-      );
+      return reject(describeError(error), 502, conversation.id);
     }
 
     // Only after the upstream commits: a refused connection or a 4xx must not

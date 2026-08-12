@@ -1,9 +1,10 @@
 import { type DragEvent, type FormEvent, useRef, useState } from 'react';
-import { MAX_ATTACHMENTS } from '@/features/completion/parse';
+import {
+  ALLOWED_MIME_TYPES,
+  MAX_ATTACHMENTS,
+} from '@/features/completion/parse';
 import type { DraftImage } from '@/lib/image-downscale';
 import { AttachmentTray } from './attachment-tray';
-
-const ACCEPTED = 'image/png,image/jpeg,image/webp';
 
 export function Composer({
   draft,
@@ -88,7 +89,7 @@ export function Composer({
         <input
           ref={fileInput}
           type="file"
-          accept={ACCEPTED}
+          accept={ALLOWED_MIME_TYPES.join(',')}
           multiple
           className="hidden"
           onChange={(event) => {

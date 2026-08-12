@@ -1,13 +1,4 @@
-function chunk(
-  delta: Record<string, string>,
-  finishReason: string | null = null,
-) {
-  return JSON.stringify({
-    id: 'stub',
-    object: 'chat.completion.chunk',
-    choices: [{ index: 0, delta, finish_reason: finishReason }],
-  });
-}
+import { chunk } from '../../fixtures/completion-wire';
 
 export const contentOnlyStream = [
   chunk({ content: 'Hel' }),

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { ReasoningDisclosure } from './reasoning-disclosure';
 
 export type TurnView = {
@@ -46,7 +47,13 @@ function describeOutcome(turn: TurnView, streaming: boolean) {
   return null;
 }
 
-export function Turn({
+/**
+ * Memoized because a delta arrives in its own microtask, so React cannot batch
+ * the per-token `setTurns` calls: without this every token re-renders every turn
+ * in the conversation. `appendDelta` keeps the identity of untouched turns, so
+ * the comparison holds.
+ */
+export const Turn = memo(function Turn({
   turn,
   streaming,
 }: {
@@ -113,4 +120,4 @@ export function Turn({
       ) : null}
     </article>
   );
-}
+});

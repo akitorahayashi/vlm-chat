@@ -4,28 +4,31 @@ function collectCauses(error: unknown) {
   const parts: string[] = [];
   let current: unknown = error;
 
-  for (
-    let depth = 0;
-    depth < 4 && current !== null && current !== undefined;
-  ) {
-    if (typeof current === 'object') {
-      const candidate = current as { code?: unknown; message?: unknown };
-
-      if (typeof candidate.code === 'string') {
-        parts.push(candidate.code);
-      }
-
-      if (typeof candidate.message === 'string') {
-        parts.push(candidate.message);
-      }
-
-      current = (current as { cause?: unknown }).cause;
-      depth += 1;
-      continue;
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (current === null || current === undefined) {
+      break;
     }
 
-    parts.push(String(current));
-    break;
+    if (typeof current !== 'object') {
+      parts.push(String(current));
+      break;
+    }
+
+    const candidate = current as {
+      code?: unknown;
+      message?: unknown;
+      cause?: unknown;
+    };
+
+    if (typeof candidate.code === 'string') {
+      parts.push(candidate.code);
+    }
+
+    if (typeof candidate.message === 'string') {
+      parts.push(candidate.message);
+    }
+
+    current = candidate.cause;
   }
 
   return parts.join(' ');

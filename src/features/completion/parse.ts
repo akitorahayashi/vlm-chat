@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import { base64ByteSize } from '@/lib/data-url';
 
-const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+export const ALLOWED_MIME_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+] as const;
 export const MAX_ATTACHMENTS = 4;
 const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
 const MAX_TOTAL_ATTACHMENT_BYTES = 12 * 1024 * 1024;
