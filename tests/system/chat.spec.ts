@@ -45,17 +45,18 @@ test('streams a reply, keeps the URL and survives a reload', async ({
   expect(consoleErrors).toEqual([]);
 });
 
-test('lists the conversation and deletes it', async ({ page }) => {
+test('lists the conversation and deletes it', async ({ page }, testInfo) => {
   const consoleErrors = collectConsoleErrors(page);
+  const title = `remember me ${testInfo.project.name} retry ${testInfo.retry}`;
 
   await page.goto('/');
-  await send(page, 'stub/echo', 'remember me');
+  await send(page, 'stub/echo', title);
 
-  const entry = page.getByRole('link', { name: 'remember me' });
+  const entry = page.getByRole('link', { name: title, exact: true });
 
   await expect(entry).toBeVisible();
 
-  await page.getByRole('button', { name: 'Delete remember me' }).click();
+  await page.getByRole('button', { name: `Delete ${title}` }).click();
 
   await expect(page).toHaveURL(/\/$/);
   await expect(entry).toHaveCount(0);
