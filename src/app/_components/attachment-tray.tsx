@@ -14,7 +14,7 @@ export function AttachmentTray({
   return (
     <ul data-testid="attachment-tray" className="flex flex-wrap gap-2 pb-3">
       {images.map((image, index) => (
-        <li key={image.dataUrl} className="relative">
+        <li key={image.id} className="relative">
           {/** biome-ignore lint/performance/noImgElement: a data URL preview is
            * what the app's img-src policy allows; blob: is not permitted. */}
           <img

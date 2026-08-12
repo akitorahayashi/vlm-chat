@@ -22,6 +22,7 @@ export async function GET(
       // Bytes under a given id never change, and serving them from this origin
       // is what keeps stored images inside `img-src 'self'`.
       'Cache-Control': 'private, max-age=31536000, immutable',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 }

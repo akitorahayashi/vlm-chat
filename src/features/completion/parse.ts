@@ -22,7 +22,10 @@ const attachmentSchema = z.object({
   dataBase64: z
     .string()
     .min(1, { message: 'An image must carry data.' })
-    .refine((value) => BASE64.test(value), {
+    .refine((value) => BASE64.test(value) && value.length % 4 === 0, {
+      // Length included: `Buffer.from` drops a trailing partial group instead of
+      // reporting it, so a truncated payload would otherwise be stored as bytes
+      // that decode to something other than what was sent.
       message: 'An image must be base64 encoded.',
     })
     .refine((value) => base64ByteSize(value) <= MAX_ATTACHMENT_BYTES, {

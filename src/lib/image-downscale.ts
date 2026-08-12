@@ -5,6 +5,11 @@ const OUTPUT_MIME = 'image/jpeg' as const;
 const OUTPUT_QUALITY = 0.85;
 
 export type DraftImage = {
+  /**
+   * Identity for the render, not for storage. Two attachments of the same file
+   * are byte-identical, so nothing about the image itself distinguishes them.
+   */
+  id: string;
   mimeType: typeof OUTPUT_MIME;
   dataBase64: string;
   dataUrl: string;
@@ -65,6 +70,7 @@ export async function downscaleImage(file: File): Promise<DraftImage> {
   const { dataBase64 } = parseDataUrl(dataUrl);
 
   return {
+    id: crypto.randomUUID(),
     mimeType: OUTPUT_MIME,
     dataBase64,
     dataUrl,

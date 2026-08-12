@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { startInferenceStub } from './fixtures/inference-stub';
+import { useInferenceStub } from './fixtures/inference-stub';
 
 async function get() {
   const { GET } = await import('@/app/api/models/route');
@@ -9,11 +9,9 @@ async function get() {
 
 describe('models route', () => {
   it('reports whatever the inference server has downloaded', async () => {
-    const stub = startInferenceStub({
+    const stub = useInferenceStub({
       models: ['mlx-community/A-4bit', 'mlx-community/B-3bit'],
     });
-
-    process.env.VLM_CHAT_INFERENCE_URL = stub.url;
 
     try {
       const response = await get();
@@ -29,17 +27,20 @@ describe('models route', () => {
   });
 
   it('answers 502 rather than an empty list when the server is down', async () => {
-    const stub = startInferenceStub({});
+    const stub = useInferenceStub({});
     const url = stub.url;
 
-    process.env.VLM_CHAT_INFERENCE_URL = url;
-    stub.stop();
+    stub.stopServer();
 
-    const response = await get();
-    const body = await response.json();
+    try {
+      const response = await get();
+      const body = await response.json();
 
-    expect(response.status).toBe(502);
-    expect(body.models).toBeUndefined();
-    expect(body.error).toContain(url);
+      expect(response.status).toBe(502);
+      expect(body.models).toBeUndefined();
+      expect(body.error).toContain(url);
+    } finally {
+      stub.stop();
+    }
   });
 });

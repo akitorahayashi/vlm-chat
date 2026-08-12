@@ -12,11 +12,11 @@ function describeOmittedImages(count: number) {
 }
 
 function withOmissionNotice(message: HistoryMessage) {
-  if (message.images.length === 0) {
+  if (message.imageCount === 0) {
     return message.content;
   }
 
-  const notice = describeOmittedImages(message.images.length);
+  const notice = describeOmittedImages(message.imageCount);
 
   return message.content.length > 0
     ? `${message.content}\n\n${notice}`

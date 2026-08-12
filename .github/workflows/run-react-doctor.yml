@@ -20,15 +20,20 @@ jobs:
       - name: Setup environment
         uses: ./.github/actions/setup
 
+      # Pinned rather than installed: the tool pulls 160-odd packages, and this
+      # advisory job is the only thing that runs it. A floating @latest would
+      # also change what CI reports without a commit saying so.
       - name: Run React Doctor
         shell: bash --noprofile --norc -eo pipefail {0}
         env:
           NO_COLOR: '1'
+          REACT_DOCTOR_VERSION: 0.9.11
         run: |
           {
             echo "# React Doctor"
             echo
             echo '```text'
           } >> "$GITHUB_STEP_SUMMARY"
-          bunx --bun react-doctor@latest . --no-score | tee -a "$GITHUB_STEP_SUMMARY"
+          bunx --bun "react-doctor@${REACT_DOCTOR_VERSION}" . --no-score \
+            | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

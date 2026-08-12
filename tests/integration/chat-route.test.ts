@@ -8,10 +8,7 @@ import {
   truncatedStream,
 } from './fixtures/completion-chunks';
 import { startConversation } from './fixtures/conversation';
-import {
-  type InferenceStubScript,
-  startInferenceStub,
-} from './fixtures/inference-stub';
+import { useInferenceStub } from './fixtures/inference-stub';
 
 let completionCounter = 0;
 
@@ -87,14 +84,6 @@ async function cancel(completionId: string) {
   );
 }
 
-function useStub(script: InferenceStubScript) {
-  const stub = startInferenceStub(script);
-
-  process.env.VLM_CHAT_INFERENCE_URL = stub.url;
-
-  return stub;
-}
-
 async function readMessages(conversationId: string) {
   const { prisma } = await import('@/lib/prisma');
 
@@ -106,7 +95,7 @@ async function readMessages(conversationId: string) {
 
 describe('chat route', () => {
   it('streams a reply and stores it as one assistant turn', async () => {
-    const stub = useStub({ chunks: contentOnlyStream });
+    const stub = useInferenceStub({ chunks: contentOnlyStream });
 
     try {
       const events = await readEvents(
@@ -143,7 +132,7 @@ describe('chat route', () => {
   });
 
   it('keeps reasoning out of the answer', async () => {
-    const stub = useStub({ chunks: reasoningThenContentStream });
+    const stub = useInferenceStub({ chunks: reasoningThenContentStream });
 
     try {
       const events = await readEvents(
@@ -162,7 +151,7 @@ describe('chat route', () => {
   });
 
   it('does not send enable_thinking upstream', async () => {
-    const stub = useStub({ chunks: contentOnlyStream });
+    const stub = useInferenceStub({ chunks: contentOnlyStream });
 
     try {
       await readEvents(await post({ modelId: 'stub/model', text: 'hi' }));
@@ -179,7 +168,7 @@ describe('chat route', () => {
   });
 
   it('keeps the partial answer when the stream fails part-way', async () => {
-    const stub = useStub({ chunks: midStreamErrorStream });
+    const stub = useInferenceStub({ chunks: midStreamErrorStream });
 
     try {
       const events = await readEvents(
@@ -207,7 +196,7 @@ describe('chat route', () => {
   });
 
   it('treats a stream that stops early as a failure', async () => {
-    const stub = useStub({ chunks: truncatedStream });
+    const stub = useInferenceStub({ chunks: truncatedStream });
 
     try {
       const events = await readEvents(
@@ -221,7 +210,7 @@ describe('chat route', () => {
   });
 
   it('records an interrupted turn when the caller goes away', async () => {
-    const stub = useStub({ chunks: slowStream, delayMs: 40 });
+    const stub = useInferenceStub({ chunks: slowStream, delayMs: 40 });
     const controller = new AbortController();
 
     try {
@@ -253,7 +242,7 @@ describe('chat route', () => {
   });
 
   it('stops generating when the browser cancels the turn', async () => {
-    const stub = useStub({ chunks: slowStream, delayMs: 40 });
+    const stub = useInferenceStub({ chunks: slowStream, delayMs: 40 });
     const completionId = 'cancel-mid-stream';
 
     try {
@@ -288,7 +277,10 @@ describe('chat route', () => {
   it('stops a turn that is still waiting for the model to load', async () => {
     // Nothing has been streamed yet and no assistant row exists, so the id the
     // client chose is the only thing that can name the turn.
-    const stub = useStub({ chunks: contentOnlyStream, headerDelayMs: 500 });
+    const stub = useInferenceStub({
+      chunks: contentOnlyStream,
+      headerDelayMs: 500,
+    });
     const completionId = 'cancel-before-start';
 
     try {
@@ -310,7 +302,7 @@ describe('chat route', () => {
   });
 
   it('refuses a second turn while the conversation is still generating', async () => {
-    const stub = useStub({ chunks: slowStream, delayMs: 30 });
+    const stub = useInferenceStub({ chunks: slowStream, delayMs: 30 });
     const conversationId = await startConversation('busy', 'stub/model');
 
     try {
@@ -353,8 +345,41 @@ describe('chat route', () => {
     }
   });
 
+  it('releases a conversation whose stream was never read', async () => {
+    const stub = useInferenceStub({ chunks: slowStream, delayMs: 30 });
+    const conversationId = await startConversation('abandoned', 'stub/model');
+
+    try {
+      const response = await post({
+        conversationId,
+        modelId: 'stub/model',
+        text: 'one',
+      });
+
+      // Cancelling without reading is what a browser that disconnects while the
+      // first event is in flight does. The claim has to come back from that path
+      // too, or the conversation answers 409 for the life of the process.
+      await response.body?.cancel();
+
+      const [, assistant] = await readMessages(conversationId);
+
+      expect(assistant.status).toBe('aborted');
+
+      const second = await post({
+        conversationId,
+        modelId: 'stub/model',
+        text: 'two',
+      });
+
+      expect(second.status).toBe(200);
+      await readEvents(second);
+    } finally {
+      stub.stop();
+    }
+  });
+
   it('survives the conversation being deleted mid-stream', async () => {
-    const stub = useStub({ chunks: slowStream, delayMs: 30 });
+    const stub = useInferenceStub({ chunks: slowStream, delayMs: 30 });
     const conversationId = await startConversation('deleted', 'stub/model');
 
     try {
@@ -391,7 +416,10 @@ describe('chat route', () => {
   });
 
   it('answers 502 and starts no assistant turn when the server rejects', async () => {
-    const stub = useStub({ chatStatus: 500, chatBody: 'model not found' });
+    const stub = useInferenceStub({
+      chatStatus: 500,
+      chatBody: 'model not found',
+    });
     const conversationId = await startConversation('rejected', 'stub/model');
 
     try {
@@ -417,7 +445,10 @@ describe('chat route', () => {
     // A first message is stored in a conversation the caller has not seen yet.
     // Without the id in the rejection, a retry would open a second one and
     // abandon this message.
-    const stub = useStub({ chatStatus: 500, chatBody: 'model not found' });
+    const stub = useInferenceStub({
+      chatStatus: 500,
+      chatBody: 'model not found',
+    });
 
     try {
       const rejection = await post({ modelId: 'stub/model', text: 'first' });
@@ -436,7 +467,10 @@ describe('chat route', () => {
   });
 
   it('continues the same conversation when a rejected turn is retried', async () => {
-    const failing = useStub({ chatStatus: 500, chatBody: 'model not found' });
+    const failing = useInferenceStub({
+      chatStatus: 500,
+      chatBody: 'model not found',
+    });
     let conversationId: string;
 
     try {
@@ -446,7 +480,7 @@ describe('chat route', () => {
       failing.stop();
     }
 
-    const working = useStub({ chunks: contentOnlyStream });
+    const working = useInferenceStub({ chunks: contentOnlyStream });
 
     try {
       const events = await readEvents(
@@ -470,15 +504,19 @@ describe('chat route', () => {
   });
 
   it('names the endpoint when the server is not running', async () => {
-    const stub = useStub({});
+    const stub = useInferenceStub({});
     const url = stub.url;
 
-    stub.stop();
+    stub.stopServer();
 
-    const response = await post({ modelId: 'stub/model', text: 'hi' });
+    try {
+      const response = await post({ modelId: 'stub/model', text: 'hi' });
 
-    expect(response.status).toBe(502);
-    expect((await response.json()).error).toContain(url);
+      expect(response.status).toBe(502);
+      expect((await response.json()).error).toContain(url);
+    } finally {
+      stub.stop();
+    }
   });
 
   it('rejects a request with neither text nor images', async () => {
@@ -491,7 +529,7 @@ describe('chat route', () => {
   });
 
   it('reports an unknown conversation', async () => {
-    const stub = useStub({ chunks: contentOnlyStream });
+    const stub = useInferenceStub({ chunks: contentOnlyStream });
 
     try {
       const response = await post({
@@ -507,7 +545,7 @@ describe('chat route', () => {
   });
 
   it('sends images from the newest turn only', async () => {
-    const stub = useStub({ chunks: contentOnlyStream });
+    const stub = useInferenceStub({ chunks: contentOnlyStream });
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString('base64');
 
     try {

@@ -73,6 +73,18 @@ describe('parsing a completion request', () => {
     ).toThrow('An image must be base64 encoded.');
   });
 
+  it('rejects base64 that was cut mid-group', () => {
+    expect(() =>
+      parseCompletionRequest(
+        request({
+          attachments: [
+            { mimeType: 'image/png', dataBase64: png.slice(0, -1) },
+          ],
+        }),
+      ),
+    ).toThrow('An image must be base64 encoded.');
+  });
+
   it('rejects an image URL in place of bytes', () => {
     expect(() =>
       parseCompletionRequest(

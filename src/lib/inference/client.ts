@@ -48,8 +48,33 @@ export async function openChatCompletion(
   return response.body;
 }
 
+/**
+ * The model list is a scan of the local HuggingFace cache, so seconds is
+ * already generous. A server that accepts the connection and never answers
+ * would otherwise leave the picker loading with nothing to say. Streaming has
+ * no deadline of its own: reading a model off disk legitimately takes minutes.
+ */
+const MODEL_LIST_TIMEOUT_MS = 5_000;
+
 export async function fetchModelIds(signal?: AbortSignal) {
-  const { response, endpoint } = await request('/v1/models', { signal });
+  const deadline = AbortSignal.timeout(MODEL_LIST_TIMEOUT_MS);
+  let attempt: Awaited<ReturnType<typeof request>>;
+
+  try {
+    attempt = await request('/v1/models', {
+      signal: signal ? AbortSignal.any([signal, deadline]) : deadline,
+    });
+  } catch (error) {
+    if (deadline.aborted && !signal?.aborted) {
+      throw new Error(
+        `The inference server at ${getInferenceEndpoint()} did not answer within ${MODEL_LIST_TIMEOUT_MS / 1000} seconds.`,
+      );
+    }
+
+    throw error;
+  }
+
+  const { response, endpoint } = attempt;
   const parsed = modelListSchema.safeParse(await response.json());
 
   if (!parsed.success) {

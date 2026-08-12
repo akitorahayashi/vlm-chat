@@ -8,7 +8,12 @@ export type TurnView = {
   status: string;
   errorMessage: string | null;
   modelId: string | null;
-  images: string[];
+  /**
+   * A stored attachment and a pending preview are both just a source to render.
+   * The id is carried separately because two attachments of the same file share
+   * a source, which then says nothing about which of them is which.
+   */
+  images: { id: string; source: string }[];
 };
 
 function describeOutcome(turn: TurnView, streaming: boolean) {
@@ -63,13 +68,13 @@ export function Turn({
 
       {turn.images.length > 0 ? (
         <ul className="flex flex-wrap gap-2">
-          {turn.images.map((source) => (
-            <li key={source}>
+          {turn.images.map((image) => (
+            <li key={image.id}>
               {/** biome-ignore lint/performance/noImgElement: attachments are
                * same-origin bytes or data URLs, both outside next/image's
                * optimizer and both required by the app's img-src policy. */}
               <img
-                src={source}
+                src={image.source}
                 alt="Attachment"
                 className="max-h-48 border border-zinc-300 dark:border-zinc-700"
               />

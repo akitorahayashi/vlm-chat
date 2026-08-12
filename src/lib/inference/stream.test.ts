@@ -109,6 +109,13 @@ describe('decoding a completion stream', () => {
     expect(events[0].type).toBe('error');
   });
 
+  it('treats a payload with no choices as an error rather than an empty chunk', async () => {
+    const events = await collect(upstream('{"id":"abc"}', '[DONE]'));
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe('error');
+  });
+
   it('reports a stream that ended before [DONE]', async () => {
     expect(await collect(upstream(chunk({ content: 'cut' })))).toEqual([
       { type: 'content', text: 'cut' },

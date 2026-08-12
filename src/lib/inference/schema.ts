@@ -28,21 +28,24 @@ export const modelListSchema = z.object({
   data: z.array(z.object({ id: z.string().min(1) })),
 });
 
+/**
+ * `choices` is required rather than defaulted: with a fallback, any JSON object
+ * at all parses as a chunk carrying nothing, and an unrecognized payload would
+ * be skipped instead of ending the turn with the reason.
+ */
 export const completionChunkSchema = z.object({
-  choices: z
-    .array(
-      z.object({
-        delta: z
-          .object({
-            content: z.string().nullish(),
-            reasoning_content: z.string().nullish(),
-            reasoning: z.string().nullish(),
-          })
-          .optional(),
-        finish_reason: z.string().nullish(),
-      }),
-    )
-    .default([]),
+  choices: z.array(
+    z.object({
+      delta: z
+        .object({
+          content: z.string().nullish(),
+          reasoning_content: z.string().nullish(),
+          reasoning: z.string().nullish(),
+        })
+        .optional(),
+      finish_reason: z.string().nullish(),
+    }),
+  ),
 });
 
 export const streamErrorSchema = z.object({

@@ -9,7 +9,7 @@ started by hand, and the web app reaches it only over an OpenAI-compatible HTTP
 API. Nothing in `src/` loads a model, and nothing in `inference/` knows the app
 exists.
 
-```
+```text
 inference/            a uv project that pins mlx-vlm and holds no source code
   ↑ OpenAI-compatible HTTP on 127.0.0.1:8080
 src/lib/inference/    the only code that talks to that port
@@ -78,7 +78,8 @@ VLM_CHAT_INFERENCE_URL="http://127.0.0.1:8080"
 Set it in `.env` only to reach a server on another host or port. The database is
 local SQLite at `data/dev.db`; that path is not configurable, because supporting
 one database is the whole point of the choice. `DATABASE_URL` overrides it, and
-exists so the integration tests can run against a temporary file.
+exists so the tests can run against their own file: a temporary one for the
+integration suite, `data/system-test.db` for the browser suite.
 
 ## Behaviour worth knowing
 

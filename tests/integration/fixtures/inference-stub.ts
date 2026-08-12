@@ -82,3 +82,34 @@ export function startInferenceStub(script: InferenceStubScript = {}) {
     stop: () => server.stop(true),
   };
 }
+
+/**
+ * The same stub, with the application pointed at it for the handle's lifetime.
+ * `bun test` runs every file in one process, so an endpoint left behind is the
+ * one whatever file runs next would read.
+ */
+export function useInferenceStub(script: InferenceStubScript = {}) {
+  const stub = startInferenceStub(script);
+  const previous = process.env.VLM_CHAT_INFERENCE_URL;
+
+  process.env.VLM_CHAT_INFERENCE_URL = stub.url;
+
+  return {
+    url: stub.url,
+    received: stub.received,
+    /**
+     * Stops the server while the application stays pointed at its port, which
+     * is how a test reaches an endpoint with nothing listening.
+     */
+    stopServer: stub.stop,
+    stop: () => {
+      stub.stop();
+
+      if (previous === undefined) {
+        delete process.env.VLM_CHAT_INFERENCE_URL;
+      } else {
+        process.env.VLM_CHAT_INFERENCE_URL = previous;
+      }
+    },
+  };
+}

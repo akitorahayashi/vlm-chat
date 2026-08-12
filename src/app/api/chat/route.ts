@@ -119,11 +119,27 @@ export async function POST(request: Request) {
 
     // Only after the upstream commits: a refused connection or a 4xx must not
     // leave a turn stranded in 'streaming'.
-    const assistantMessage = await startAssistantMessage({
-      conversationId: conversation.id,
-      modelId: parsed.modelId,
-      seed,
-    });
+    let assistantMessage: { id: string };
+
+    try {
+      assistantMessage = await startAssistantMessage({
+        conversationId: conversation.id,
+        modelId: parsed.modelId,
+        seed,
+      });
+    } catch (error) {
+      // The server is already generating and nothing downstream will ever read
+      // it, so it has to be told to stop here: no assistant turn exists to
+      // carry the tokens, and the model would stay busy to the end.
+      generation.abort();
+
+      // Closes the body on a runtime where aborting a settled fetch does not.
+      // It rejects when the abort above already errored the stream, which is
+      // the expected case and says nothing a caller could act on.
+      void upstream.cancel().catch(() => {});
+
+      throw error;
+    }
 
     handedOff = true;
 

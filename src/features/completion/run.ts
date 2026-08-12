@@ -38,15 +38,19 @@ export async function* runCompletion(input: {
       errorMessage,
     });
 
-  yield {
-    type: 'start',
-    conversationId: input.conversationId,
-    userMessageId: input.userMessageId,
-    assistantMessageId: input.assistantMessageId,
-    modelId: input.modelId,
-  };
-
   try {
+    // Inside the try, and not before it: a generator suspended at a yield that
+    // sits outside one is closed without running its `finally`, so a client
+    // that disconnects while this first event is in flight would leave the turn
+    // in 'streaming' and the conversation claimed for the life of the process.
+    yield {
+      type: 'start',
+      conversationId: input.conversationId,
+      userMessageId: input.userMessageId,
+      assistantMessageId: input.assistantMessageId,
+      modelId: input.modelId,
+    };
+
     for await (const event of decodeCompletionStream(input.body)) {
       if (event.type === 'content') {
         content += event.text;

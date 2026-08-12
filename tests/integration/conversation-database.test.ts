@@ -86,6 +86,11 @@ describe('conversation database', () => {
       (conversation) => conversation.id,
     );
 
+    // Both ids first: two missing ones would compare as -1 < -1 and a single
+    // missing one as -1 < n, so the comparison alone can pass without listing
+    // anything.
+    expect(listed).toContain(older);
+    expect(listed).toContain(newer);
     expect(listed.indexOf(older)).toBeLessThan(listed.indexOf(newer));
   });
 

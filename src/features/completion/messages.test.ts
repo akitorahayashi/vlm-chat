@@ -6,12 +6,18 @@ function user(content: string, images: string[] = []): HistoryMessage {
   return {
     role: 'user',
     content,
+    imageCount: images.length,
     images: images.map((dataBase64) => ({ mimeType: 'image/png', dataBase64 })),
   };
 }
 
+/** An earlier turn: its images are counted, and their bytes are not read. */
+function counted(content: string, imageCount: number): HistoryMessage {
+  return { role: 'user', content, imageCount, images: [] };
+}
+
 function assistant(content: string): HistoryMessage {
-  return { role: 'assistant', content, images: [] };
+  return { role: 'assistant', content, imageCount: 0, images: [] };
 }
 
 describe('building completion messages', () => {
@@ -47,7 +53,7 @@ describe('building completion messages', () => {
 
   it('replaces images on earlier turns with a stated omission', () => {
     const built = buildCompletionMessages([
-      user('first', ['AAA', 'BBB']),
+      counted('first', 2),
       assistant('a cat and a dog'),
       user('and this one?', ['CCC']),
     ]);
@@ -65,7 +71,7 @@ describe('building completion messages', () => {
 
   it('words a single omitted image in the singular', () => {
     const [message] = buildCompletionMessages([
-      user('first', ['AAA']),
+      counted('first', 1),
       user('second'),
     ]);
 
@@ -76,7 +82,7 @@ describe('building completion messages', () => {
 
   it('sends exactly as many images as the newest turn carries', () => {
     const built = buildCompletionMessages([
-      user('a', ['AAA']),
+      counted('a', 1),
       user('b', ['BBB', 'CCC']),
     ]);
 

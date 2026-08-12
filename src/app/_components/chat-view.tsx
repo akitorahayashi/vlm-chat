@@ -30,9 +30,10 @@ function toTurn(message: TranscriptMessage): TurnView {
     status: message.status,
     errorMessage: message.errorMessage,
     modelId: message.modelId,
-    images: message.attachments.map(
-      (attachment) => `/api/attachments/${attachment.id}`,
-    ),
+    images: message.attachments.map((attachment) => ({
+      id: attachment.id,
+      source: `/api/attachments/${attachment.id}`,
+    })),
   };
 }
 
@@ -95,6 +96,11 @@ export function ChatView({
     return () => controller.abort();
   }, []);
 
+  // Navigating away leaves the reader with nowhere to put what it reads. The
+  // server is not told: `stop()` is what cancels a turn, and a reply the user
+  // navigated away from is still worth recording.
+  useEffect(() => () => abort.current?.abort(), []);
+
   function patch(id: string, next: Partial<TurnView>) {
     setTurns((current) =>
       current.map((turn) => (turn.id === id ? { ...turn, ...next } : turn)),
@@ -123,11 +129,24 @@ export function ChatView({
       return;
     }
 
-    try {
-      const added = await Promise.all(files.slice(0, room).map(downscaleImage));
-      setImages((current) => [...current, ...added]);
-    } catch (cause) {
-      setError(describe(cause));
+    // Settled rather than all: one file the browser cannot decode — a PDF
+    // dropped along with photos — must not discard the ones next to it.
+    const results = await Promise.allSettled(
+      files.slice(0, room).map(downscaleImage),
+    );
+    const added = results.flatMap((result) =>
+      result.status === 'fulfilled' ? [result.value] : [],
+    );
+    const rejection = results.find((result) => result.status === 'rejected');
+
+    if (added.length > 0) {
+      // Clamped against the state at the time of the update rather than the
+      // room measured above: two drops can be in flight at once.
+      setImages((current) => [...current, ...added].slice(0, MAX_ATTACHMENTS));
+    }
+
+    if (rejection) {
+      setError(describe(rejection.reason));
     }
   }
 
@@ -164,7 +183,10 @@ export function ChatView({
       mimeType,
       dataBase64,
     }));
-    const previews = images.map((image) => image.dataUrl);
+    const previews = images.map((image) => ({
+      id: image.id,
+      source: image.dataUrl,
+    }));
 
     setError(null);
     setDraft('');

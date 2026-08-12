@@ -17,9 +17,18 @@ export function ConversationList({
   const [error, setError] = useState<string | null>(null);
 
   async function remove(id: string) {
-    const response = await fetch(`/api/conversations/${id}`, {
-      method: 'DELETE',
-    });
+    let response: Response;
+
+    try {
+      response = await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
+    } catch (cause) {
+      setError(
+        `Could not delete the conversation: ${
+          cause instanceof Error ? cause.message : String(cause)
+        }`,
+      );
+      return;
+    }
 
     if (!response.ok) {
       const body = await response.json().catch(() => null);
