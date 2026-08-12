@@ -38,3 +38,11 @@ from — do not add npm scripts that wrap it.
   images are served from `/api/attachments/<id>`; `blob:` will not render.
 - Tests must never require a live inference server. Both stubs live in
   `tests/integration/fixtures/` and `tests/system/fixtures/`.
+- A conversation holds at most one running completion, claimed in
+  `src/lib/running-completions.ts` before the user turn is written. Building a
+  prompt while another turn is streaming into the same conversation would omit
+  that turn's reply, so the second request is refused rather than queued.
+- Cancellation is keyed by an id the client chooses, not by the assistant
+  message's, so a turn can be stopped before any row exists to name.
+- `prisma/migrations` is now append-only. Its history is the applied baseline;
+  the earlier rewrite was safe only because nothing had ever run it.

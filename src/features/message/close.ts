@@ -16,7 +16,11 @@ export async function closeAssistantMessage(input: {
   finishReason?: string | null;
   errorMessage?: string | null;
 }) {
-  await prisma.message.update({
+  // updateMany rather than update: cancelling a turn does not wait for its
+  // finalizer, so a conversation deleted at that moment takes the row with it
+  // and `update` would raise on the missing id. Matching nothing is the correct
+  // outcome there — the turn it would have described is gone.
+  await prisma.message.updateMany({
     where: { id: input.messageId },
     data: {
       content: input.content,

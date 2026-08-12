@@ -19,7 +19,7 @@ test('keeps the partial answer visible when the stream fails part-way', async ({
   expect(consoleErrors).toEqual([]);
 });
 
-test('quotes the inference server when it rejects the request', async ({
+test('quotes the inference server when it rejects the request, and keeps the retry in one conversation', async ({
   page,
 }) => {
   await page.goto('/');
@@ -28,4 +28,20 @@ test('quotes the inference server when it rejects the request', async ({
   await expect(page.getByTestId('error-banner')).toContainText(
     'the stub refuses this model',
   );
+
+  // The message was stored before the server was contacted, so the browser has
+  // to end up on the conversation holding it.
+  await expect(page).toHaveURL(/\/conversations\/.+/);
+  await expect(lastTurn(page, 'user')).toContainText('this will not work');
+
+  const conversation = page.url();
+
+  await send(page, 'stub/echo', 'try again');
+
+  await expect(lastTurn(page, 'assistant')).toContainText(
+    'Hello from the stub.',
+  );
+  // Same URL: retrying continued the stored conversation instead of forking a
+  // second one and stranding the first message.
+  expect(page.url()).toBe(conversation);
 });

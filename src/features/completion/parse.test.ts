@@ -4,16 +4,28 @@ import { parseCompletionRequest } from './parse';
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString('base64');
 
 function request(overrides: Record<string, unknown> = {}) {
-  return { modelId: 'a/b', text: 'hello', ...overrides };
+  return {
+    completionId: 'c1',
+    modelId: 'a/b',
+    text: 'hello',
+    ...overrides,
+  };
 }
 
 describe('parsing a completion request', () => {
   it('accepts text with no images', () => {
     expect(parseCompletionRequest(request())).toEqual({
+      completionId: 'c1',
       modelId: 'a/b',
       text: 'hello',
       attachments: [],
     });
+  });
+
+  it('requires a completion id, which is what a stop request names', () => {
+    expect(() =>
+      parseCompletionRequest(request({ completionId: '' })),
+    ).toThrow();
   });
 
   it('trims the text', () => {

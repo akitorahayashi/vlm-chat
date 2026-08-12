@@ -2,19 +2,37 @@ import type { CompletionRequest } from '@/features/completion/parse';
 import { type ChatEvent, decodeChatEvent } from './chat-event';
 import { readServerSentEvents } from './server-sent-events';
 
+/**
+ * Carries the conversation the request belonged to, which for a first message
+ * is one the server has just created and stored the user's turn in. Without it
+ * the browser would still be on no conversation at all and a retry would open a
+ * second one.
+ */
+export class CompletionRejected extends Error {
+  constructor(
+    message: string,
+    readonly conversationId?: string,
+  ) {
+    super(message);
+    this.name = 'CompletionRejected';
+  }
+}
+
 async function describeRejection(response: Response) {
   const body: unknown = await response.json().catch(() => null);
+  const fields =
+    body !== null && typeof body === 'object'
+      ? (body as { error?: unknown; conversationId?: unknown })
+      : {};
 
-  if (
-    body !== null &&
-    typeof body === 'object' &&
-    'error' in body &&
-    typeof body.error === 'string'
-  ) {
-    return body.error;
-  }
-
-  return `The chat request failed with status ${response.status}.`;
+  return new CompletionRejected(
+    typeof fields.error === 'string'
+      ? fields.error
+      : `The chat request failed with status ${response.status}.`,
+    typeof fields.conversationId === 'string'
+      ? fields.conversationId
+      : undefined,
+  );
 }
 
 /**
@@ -33,7 +51,7 @@ export async function* openCompletionConnection(input: {
   });
 
   if (!response.ok) {
-    throw new Error(await describeRejection(response));
+    throw await describeRejection(response);
   }
 
   if (!response.body) {

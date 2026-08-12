@@ -32,6 +32,11 @@ const attachmentSchema = z.object({
 
 export const completionRequestSchema = z
   .object({
+    // Chosen by the caller so it can stop the turn before the server has read
+    // the model off disk and created anything to name.
+    completionId: z.string().min(1).max(64, {
+      message: 'completionId is too long.',
+    }),
     conversationId: z.string().min(1).optional(),
     modelId: z.string().min(1, { message: 'modelId is required.' }),
     text: z.string().default(''),

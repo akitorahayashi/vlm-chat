@@ -2,6 +2,8 @@ export type InferenceStubScript = {
   models?: string[];
   chunks?: string[];
   delayMs?: number;
+  /** Time before the response headers arrive, standing in for a model load. */
+  headerDelayMs?: number;
   chatStatus?: number;
   chatBody?: string;
 };
@@ -34,6 +36,10 @@ export function startInferenceStub(script: InferenceStubScript = {}) {
 
       if (pathname === '/v1/chat/completions') {
         received.push(await request.json());
+
+        if (script.headerDelayMs) {
+          await Bun.sleep(script.headerDelayMs);
+        }
 
         if (script.chatStatus && script.chatStatus !== 200) {
           return new Response(script.chatBody ?? 'stub failure', {

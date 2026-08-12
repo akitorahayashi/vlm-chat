@@ -110,7 +110,15 @@ A seed is drawn per request. Without one the server uses 0, and identical
 prompts return identical text even above temperature 0. The seed is stored on
 the turn it produced.
 
-The server runs a single worker, so two tabs streaming at once will serialise.
+A conversation generates one reply at a time. A second request for the same
+conversation is refused with 409 rather than queued, because its prompt would
+otherwise be built from a history that is missing the reply still arriving. Stop
+the running turn, or wait for it. Different conversations are free to overlap,
+though the server itself runs a single worker and will serialise them.
+
+Stopping a turn works from the moment it is sent, including the long wait while
+a model is read off disk. The browser names the turn with an id it chose itself,
+so there is nothing to wait for before it can say stop.
 
 ## Database
 

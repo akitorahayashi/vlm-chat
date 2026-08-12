@@ -9,9 +9,9 @@ export const dynamic = 'force-dynamic';
  */
 export async function DELETE(
   _request: Request,
-  context: { params: Promise<{ messageId: string }> },
+  context: { params: Promise<{ completionId: string }> },
 ) {
-  const { messageId } = await context.params;
+  const { completionId } = await context.params;
 
-  return Response.json({ cancelled: cancelCompletion(messageId) });
+  return Response.json({ cancelled: cancelCompletion(completionId) });
 }

@@ -13,16 +13,37 @@ import {
   startInferenceStub,
 } from './fixtures/inference-stub';
 
-async function post(body: unknown, signal?: AbortSignal) {
+let completionCounter = 0;
+
+function nextCompletionId() {
+  completionCounter += 1;
+
+  return `test-${completionCounter}`;
+}
+
+async function post(body: Record<string, unknown>, signal?: AbortSignal) {
   const { POST } = await import('@/app/api/chat/route');
 
   return POST(
     new Request('http://localhost/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ completionId: nextCompletionId(), ...body }),
       signal,
     }),
+  );
+}
+
+async function removeConversation(conversationId: string) {
+  const { DELETE } = await import(
+    '@/app/api/conversations/[conversationId]/route'
+  );
+
+  return DELETE(
+    new Request(`http://localhost/api/conversations/${conversationId}`, {
+      method: 'DELETE',
+    }),
+    { params: Promise.resolve({ conversationId }) },
   );
 }
 
@@ -55,14 +76,14 @@ async function readEvents(
   return events;
 }
 
-async function cancel(messageId: string) {
-  const { DELETE } = await import('@/app/api/completions/[messageId]/route');
+async function cancel(completionId: string) {
+  const { DELETE } = await import('@/app/api/completions/[completionId]/route');
 
   return DELETE(
-    new Request(`http://localhost/api/completions/${messageId}`, {
+    new Request(`http://localhost/api/completions/${completionId}`, {
       method: 'DELETE',
     }),
-    { params: Promise.resolve({ messageId }) },
+    { params: Promise.resolve({ completionId }) },
   );
 }
 
@@ -233,20 +254,23 @@ describe('chat route', () => {
 
   it('stops generating when the browser cancels the turn', async () => {
     const stub = useStub({ chunks: slowStream, delayMs: 40 });
+    const completionId = 'cancel-mid-stream';
 
     try {
-      const response = await post({ modelId: 'stub/model', text: 'hi' });
+      const response = await post({
+        completionId,
+        modelId: 'stub/model',
+        text: 'hi',
+      });
       let conversationId = 'none';
-      let assistantMessageId = '';
 
       const events = await readEvents(response, (event) => {
         if (event.type === 'start') {
           conversationId = event.conversationId;
-          assistantMessageId = event.assistantMessageId;
         }
 
         if (event.type === 'delta') {
-          void cancel(assistantMessageId);
+          void cancel(completionId);
         }
       });
 
@@ -256,6 +280,104 @@ describe('chat route', () => {
 
       expect(assistant.status).toBe('aborted');
       expect(assistant.content).not.toBe('one two three four five');
+    } finally {
+      stub.stop();
+    }
+  });
+
+  it('stops a turn that is still waiting for the model to load', async () => {
+    // Nothing has been streamed yet and no assistant row exists, so the id the
+    // client chose is the only thing that can name the turn.
+    const stub = useStub({ chunks: contentOnlyStream, headerDelayMs: 500 });
+    const completionId = 'cancel-before-start';
+
+    try {
+      const pending = post({
+        completionId,
+        modelId: 'stub/model',
+        text: 'hi',
+      });
+
+      await Bun.sleep(80);
+
+      expect(await (await cancel(completionId)).json()).toEqual({
+        cancelled: true,
+      });
+      expect((await pending).status).toBe(499);
+    } finally {
+      stub.stop();
+    }
+  });
+
+  it('refuses a second turn while the conversation is still generating', async () => {
+    const stub = useStub({ chunks: slowStream, delayMs: 30 });
+    const conversationId = await startConversation('busy', 'stub/model');
+
+    try {
+      const first = await post({
+        conversationId,
+        modelId: 'stub/model',
+        text: 'one',
+      });
+      const second = await post({
+        conversationId,
+        modelId: 'stub/model',
+        text: 'two',
+      });
+
+      expect(second.status).toBe(409);
+      expect(await second.json()).toMatchObject({ conversationId });
+
+      // The refused request must not have stored its message either, or the
+      // next prompt would carry a turn the model never answered.
+      expect(await readMessages(conversationId)).toHaveLength(2);
+
+      await readEvents(first);
+
+      const messages = await readMessages(conversationId);
+
+      expect(messages).toHaveLength(2);
+      expect(messages[1].status).toBe('complete');
+
+      // Once it has settled the conversation accepts turns again.
+      const third = await post({
+        conversationId,
+        modelId: 'stub/model',
+        text: 'three',
+      });
+
+      expect(third.status).toBe(200);
+      await readEvents(third);
+    } finally {
+      stub.stop();
+    }
+  });
+
+  it('survives the conversation being deleted mid-stream', async () => {
+    const stub = useStub({ chunks: slowStream, delayMs: 30 });
+    const conversationId = await startConversation('deleted', 'stub/model');
+
+    try {
+      const response = await post({
+        conversationId,
+        modelId: 'stub/model',
+        text: 'hi',
+      });
+
+      await readEvents(response, (event) => {
+        if (event.type === 'delta') {
+          void removeConversation(conversationId);
+        }
+      });
+
+      const { prisma } = await import('@/lib/prisma');
+
+      expect(await prisma.message.count({ where: { conversationId } })).toBe(0);
+
+      // The lock has to come back with it, or the id would stay busy forever.
+      expect(
+        await post({ conversationId, modelId: 'stub/model', text: 'again' }),
+      ).toMatchObject({ status: 404 });
     } finally {
       stub.stop();
     }
@@ -288,6 +410,62 @@ describe('chat route', () => {
       expect(messages[0].role).toBe('user');
     } finally {
       stub.stop();
+    }
+  });
+
+  it('names the conversation it created even when the turn is rejected', async () => {
+    // A first message is stored in a conversation the caller has not seen yet.
+    // Without the id in the rejection, a retry would open a second one and
+    // abandon this message.
+    const stub = useStub({ chatStatus: 500, chatBody: 'model not found' });
+
+    try {
+      const rejection = await post({ modelId: 'stub/model', text: 'first' });
+      const { conversationId } = await rejection.json();
+
+      expect(rejection.status).toBe(502);
+      expect(typeof conversationId).toBe('string');
+
+      const messages = await readMessages(conversationId);
+
+      expect(messages).toHaveLength(1);
+      expect(messages[0].content).toBe('first');
+    } finally {
+      stub.stop();
+    }
+  });
+
+  it('continues the same conversation when a rejected turn is retried', async () => {
+    const failing = useStub({ chatStatus: 500, chatBody: 'model not found' });
+    let conversationId: string;
+
+    try {
+      const rejection = await post({ modelId: 'stub/model', text: 'first' });
+      conversationId = (await rejection.json()).conversationId;
+    } finally {
+      failing.stop();
+    }
+
+    const working = useStub({ chunks: contentOnlyStream });
+
+    try {
+      const events = await readEvents(
+        await post({ conversationId, modelId: 'stub/model', text: 'again' }),
+      );
+      const start = events[0];
+
+      expect(start.type === 'start' && start.conversationId).toBe(
+        conversationId,
+      );
+
+      const { prisma } = await import('@/lib/prisma');
+
+      expect(
+        await prisma.conversation.count({ where: { id: conversationId } }),
+      ).toBe(1);
+      expect(await readMessages(conversationId)).toHaveLength(3);
+    } finally {
+      working.stop();
     }
   });
 

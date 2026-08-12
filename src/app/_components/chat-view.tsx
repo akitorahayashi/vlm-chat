@@ -4,7 +4,10 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { MAX_ATTACHMENTS } from '@/features/completion/parse';
 import type { TranscriptMessage } from '@/features/conversation/read';
-import { openCompletionConnection } from '@/lib/completion-connection';
+import {
+  CompletionRejected,
+  openCompletionConnection,
+} from '@/lib/completion-connection';
 import { type DraftImage, downscaleImage } from '@/lib/image-downscale';
 import { Composer } from './composer';
 import { ErrorBanner } from './error-banner';
@@ -56,6 +59,7 @@ export function ChatView({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
+  const completion = useRef<string | null>(null);
 
   // Fetched from the browser rather than during server rendering: a server-side
   // fetch would make the whole page fail when the Python side is down, and
@@ -128,18 +132,20 @@ export function ChatView({
   }
 
   // Aborting the fetch only ends this page's reading. The server is told
-  // separately, because that is what stops the model.
+  // separately, because that is what stops the model — and it is told by the id
+  // this client chose, so stopping works during the long wait before the first
+  // event, which is exactly when a model is being read off disk.
   async function stop() {
-    const messageId = streamingId;
+    const completionId = completion.current;
 
     abort.current?.abort();
 
-    if (messageId === null || messageId === PENDING_ASSISTANT_ID) {
+    if (completionId === null) {
       return;
     }
 
     try {
-      await fetch(`/api/completions/${messageId}`, { method: 'DELETE' });
+      await fetch(`/api/completions/${completionId}`, { method: 'DELETE' });
     } catch (cause) {
       setError(
         `The turn was stopped here but may still be running: ${describe(cause)}`,
@@ -191,12 +197,16 @@ export function ChatView({
     const controller = new AbortController();
     abort.current = controller;
 
+    const completionId = crypto.randomUUID();
+    completion.current = completionId;
+
     let assistantId = PENDING_ASSISTANT_ID;
     let startedConversationId: string | null = null;
 
     try {
       for await (const event of openCompletionConnection({
         request: {
+          completionId,
           conversationId: conversationId ?? undefined,
           modelId: selectedModel,
           text,
@@ -234,11 +244,19 @@ export function ChatView({
       if (controller.signal.aborted) {
         patch(assistantId, { status: 'aborted' });
       } else {
+        // A rejection still names the conversation the message was stored in,
+        // so the navigation below moves onto it and a retry continues that one
+        // instead of opening another.
+        if (cause instanceof CompletionRejected && cause.conversationId) {
+          startedConversationId = cause.conversationId;
+        }
+
         patch(assistantId, { status: 'failed', errorMessage: describe(cause) });
         setError(describe(cause));
       }
     } finally {
       abort.current = null;
+      completion.current = null;
       setStreamingId(null);
     }
 

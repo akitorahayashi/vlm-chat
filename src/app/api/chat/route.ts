@@ -15,13 +15,19 @@ import { encodeChatEvents } from '@/lib/chat-event';
 import { getInferenceEndpoint } from '@/lib/environment';
 import { openChatCompletion } from '@/lib/inference/client';
 import { buildChatCompletionRequest, drawSeed } from '@/lib/inference/request';
-import { registerCompletion } from '@/lib/running-completions';
+import { claimCompletion, releaseCompletion } from '@/lib/running-completions';
 import { createServerSentEventStream } from '@/lib/server-sent-events';
 
 export const dynamic = 'force-dynamic';
 
-function reject(message: string, status: number) {
-  return Response.json({ error: message }, { status });
+/**
+ * A rejection names the conversation whenever one exists, including the one
+ * this request just created. The user's message is already stored in it, so a
+ * caller that does not learn the id would start a second conversation on the
+ * next attempt and strand the first.
+ */
+function reject(message: string, status: number, conversationId?: string) {
+  return Response.json({ error: message, conversationId }, { status });
 }
 
 export async function POST(request: Request) {
@@ -47,76 +53,109 @@ export async function POST(request: Request) {
     return reject(`No conversation with id ${parsed.conversationId}.`, 404);
   }
 
-  // Written before the upstream call: what the user typed and attached is a
-  // fact regardless of whether the model ever answers, and a retry should not
-  // require typing it again.
-  const userMessage = await appendUserMessage({
-    conversationId: conversation.id,
-    modelId: parsed.modelId,
-    text: parsed.text,
-    attachments: parsed.attachments,
-  });
-
-  const seed = drawSeed();
-  const body = buildChatCompletionRequest({
-    modelId: parsed.modelId,
-    messages: buildCompletionMessages(
-      await readCompletionHistory(conversation.id),
-    ),
-    seed,
-  });
-
-  const endpoint = getInferenceEndpoint();
   const generation = new AbortController();
 
   // Kept as a second trigger rather than the only one: it does fire in some
   // runtimes, and costs nothing where it does not.
   request.signal.addEventListener('abort', () => generation.abort());
 
-  let upstream: ReadableStream<Uint8Array>;
-
-  try {
-    upstream = await openChatCompletion(body, generation.signal);
-  } catch (error) {
-    if (isAbortError(error)) {
-      // The browser went away before generation began; nobody is left to read
-      // a body, and no assistant turn was ever started.
-      return new Response(null, { status: 499 });
-    }
-
-    return reject(error instanceof Error ? error.message : String(error), 502);
+  // Claimed before the user turn is written. A second request would otherwise
+  // append its message and then build a prompt from a history that excludes the
+  // reply still being streamed into the first one.
+  if (
+    !claimCompletion({
+      completionId: parsed.completionId,
+      conversationId: conversation.id,
+      controller: generation,
+    })
+  ) {
+    return reject(
+      'This conversation is already generating a reply. Wait for it to finish, or stop it first.',
+      409,
+      conversation.id,
+    );
   }
 
-  // Only after the upstream commits: a refused connection or a 4xx must not
-  // leave a turn stranded in 'streaming'.
-  const assistantMessage = await startAssistantMessage({
-    conversationId: conversation.id,
-    modelId: parsed.modelId,
-    seed,
-  });
+  let handedOff = false;
 
-  registerCompletion(assistantMessage.id, generation);
+  try {
+    // Written before the upstream call: what the user typed and attached is a
+    // fact regardless of whether the model ever answers, and a retry should not
+    // require typing it again.
+    const userMessage = await appendUserMessage({
+      conversationId: conversation.id,
+      modelId: parsed.modelId,
+      text: parsed.text,
+      attachments: parsed.attachments,
+    });
 
-  return new Response(
-    createServerSentEventStream(
-      encodeChatEvents(
-        runCompletion({
-          conversationId: conversation.id,
-          userMessageId: userMessage.id,
-          assistantMessageId: assistantMessage.id,
-          modelId: parsed.modelId,
-          endpoint,
-          body: upstream,
-        }),
+    const seed = drawSeed();
+    const body = buildChatCompletionRequest({
+      modelId: parsed.modelId,
+      messages: buildCompletionMessages(
+        await readCompletionHistory(conversation.id),
       ),
-    ),
-    {
-      headers: {
-        'Content-Type': 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache, no-transform',
-        Connection: 'keep-alive',
-        'X-Accel-Buffering': 'no',
+      seed,
+    });
+
+    const endpoint = getInferenceEndpoint();
+    let upstream: ReadableStream<Uint8Array>;
+
+    try {
+      upstream = await openChatCompletion(body, generation.signal);
+    } catch (error) {
+      if (isAbortError(error)) {
+        // Stopped while the model was still being read off disk. Nothing was
+        // generated, so there is no assistant turn to record.
+        return new Response(null, { status: 499 });
+      }
+
+      return reject(
+        error instanceof Error ? error.message : String(error),
+        502,
+        conversation.id,
+      );
+    }
+
+    // Only after the upstream commits: a refused connection or a 4xx must not
+    // leave a turn stranded in 'streaming'.
+    const assistantMessage = await startAssistantMessage({
+      conversationId: conversation.id,
+      modelId: parsed.modelId,
+      seed,
+    });
+
+    handedOff = true;
+
+    return new Response(
+      createServerSentEventStream(
+        encodeChatEvents(
+          runCompletion({
+            completionId: parsed.completionId,
+            conversationId: conversation.id,
+            userMessageId: userMessage.id,
+            assistantMessageId: assistantMessage.id,
+            modelId: parsed.modelId,
+            endpoint,
+            body: upstream,
+          }),
+        ),
+      ),
+      {
+        headers: {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+          'X-Accel-Buffering': 'no',
+        },
       },
-    },
-  );
+    );
+  } finally {
+    // Only a stream that was actually handed to the client keeps the claim;
+    // `runCompletion` releases that one. Anything else — an early return, a
+    // failed write — must not leave the conversation locked.
+    if (!handedOff) {
+      releaseCompletion(parsed.completionId);
+    }
+  }
 }

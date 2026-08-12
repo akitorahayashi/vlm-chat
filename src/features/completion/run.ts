@@ -12,6 +12,7 @@ import { releaseCompletion } from '@/lib/running-completions';
  * is cancelled, which resumes this generator at its `finally`.
  */
 export async function* runCompletion(input: {
+  completionId: string;
   conversationId: string;
   userMessageId: string;
   assistantMessageId: string;
@@ -89,6 +90,6 @@ export async function* runCompletion(input: {
       await close('aborted');
     }
 
-    releaseCompletion(input.assistantMessageId);
+    releaseCompletion(input.completionId);
   }
 }
