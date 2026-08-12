@@ -1,12 +1,12 @@
 import { defineConfig } from 'prisma/config';
+import { getDatabaseUrl } from './src/lib/environment.ts';
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: {
     path: 'prisma/migrations',
-    seed: 'bun prisma/seed.ts',
   },
   datasource: {
-    url: process.env.DATABASE_URL,
+    url: getDatabaseUrl(),
   },
 });

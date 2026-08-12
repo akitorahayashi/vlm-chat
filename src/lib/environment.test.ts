@@ -1,84 +1,46 @@
-import { describe, expect, it, spyOn } from 'bun:test';
-import {
-  getDatabaseEnvironment,
-  getSystemTestPort,
-  getTursoEnvironment,
-} from './environment';
+import { describe, expect, it } from 'bun:test';
+import { getDatabaseUrl, getInferenceEndpoint } from './environment';
 
-describe('database environment', () => {
-  it('accepts a local SQLite URL without a token', () => {
-    expect(
-      getDatabaseEnvironment({
-        DATABASE_URL: 'file:./data/test.db',
-        TURSO_AUTH_TOKEN: '',
-      }),
-    ).toEqual({
-      kind: 'sqlite',
-      databaseUrl: 'file:./data/test.db',
-    });
+describe('database url', () => {
+  it('needs no configuration', () => {
+    expect(getDatabaseUrl({})).toBe('file:./data/dev.db');
   });
 
-  it('rejects a Turso token for local SQLite', () => {
+  it('accepts an override so tests can use a temporary file', () => {
+    expect(getDatabaseUrl({ DATABASE_URL: 'file:/tmp/test.db' })).toBe(
+      'file:/tmp/test.db',
+    );
+  });
+
+  it('rejects an override that is not SQLite', () => {
     expect(() =>
-      getDatabaseEnvironment({
-        DATABASE_URL: 'file:./data/test.db',
-        TURSO_AUTH_TOKEN: 'secret',
-      }),
-    ).toThrow('TURSO_AUTH_TOKEN must not be set for a local SQLite database.');
-  });
-
-  it('accepts a Turso URL with a token', () => {
-    expect(
-      getTursoEnvironment({
-        DATABASE_URL: 'libsql://example.turso.io',
-        TURSO_AUTH_TOKEN: 'secret',
-      }),
-    ).toEqual({
-      kind: 'turso',
-      databaseUrl: 'libsql://example.turso.io',
-      authToken: 'secret',
-    });
-  });
-
-  it('requires a token for Turso', () => {
-    expect(() =>
-      getDatabaseEnvironment({
-        DATABASE_URL: 'libsql://example.turso.io',
-        TURSO_AUTH_TOKEN: '',
-      }),
-    ).toThrow('TURSO_AUTH_TOKEN is required for a Turso database.');
-  });
-
-  it('rejects unsupported database URLs', () => {
-    expect(() =>
-      getDatabaseEnvironment({
-        DATABASE_URL: 'postgresql://localhost/example',
-      }),
-    ).toThrow('DATABASE_URL must use file:, sqlite:, libsql://, or https://.');
+      getDatabaseUrl({ DATABASE_URL: 'postgresql://localhost/chat' }),
+    ).toThrow('DATABASE_URL must use file: or sqlite:.');
   });
 });
 
-describe('system test port', () => {
-  it('uses the configured positive integer', () => {
-    expect(getSystemTestPort({ NEXT_BUN_SYSTEM_TEST_PORT: '4100' })).toBe(4100);
+describe('inference endpoint', () => {
+  it('defaults to where mlx-vlm listens', () => {
+    expect(getInferenceEndpoint({})).toBe('http://127.0.0.1:8080');
   });
 
-  it('logs an explicit default decision', () => {
-    const warn = spyOn(console, 'warn').mockImplementation(() => {});
-
-    expect(getSystemTestPort({})).toBe(3001);
-    expect(warn).toHaveBeenCalledWith(
-      'NEXT_BUN_SYSTEM_TEST_PORT is not set. Using 3001.',
-    );
-
-    warn.mockRestore();
+  it('accepts a configured endpoint', () => {
+    expect(
+      getInferenceEndpoint({ VLM_CHAT_INFERENCE_URL: 'http://10.0.0.2:9000' }),
+    ).toBe('http://10.0.0.2:9000');
   });
 
-  it('rejects invalid ports', () => {
+  it('strips trailing slashes so paths concatenate cleanly', () => {
+    expect(
+      getInferenceEndpoint({
+        VLM_CHAT_INFERENCE_URL: 'http://127.0.0.1:8080//',
+      }),
+    ).toBe('http://127.0.0.1:8080');
+  });
+
+  it('rejects an endpoint that is not http', () => {
     expect(() =>
-      getSystemTestPort({ NEXT_BUN_SYSTEM_TEST_PORT: 'invalid' }),
-    ).toThrow(
-      'NEXT_BUN_SYSTEM_TEST_PORT must be a positive integer: received "invalid"',
-    );
+      getInferenceEndpoint({ VLM_CHAT_INFERENCE_URL: '127.0.0.1:8080' }),
+    ).toThrow('VLM_CHAT_INFERENCE_URL must use http:// or https://.');
   });
 });

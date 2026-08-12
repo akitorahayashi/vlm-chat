@@ -1,117 +1,41 @@
-import { z } from 'zod';
-
 type RawEnv = Record<string, string | undefined>;
 
-export type DatabaseEnvironment =
-  | {
-      kind: 'sqlite';
-      databaseUrl: string;
-    }
-  | {
-      kind: 'turso';
-      databaseUrl: string;
-      authToken: string;
-    };
+/**
+ * The database is local SQLite and nothing else, so its location is an
+ * implementation detail rather than something to configure. `DATABASE_URL`
+ * exists only so the integration tests can point at a temporary file.
+ */
+const LOCAL_DATABASE_URL = 'file:./data/dev.db';
 
-const requiredString = (name: string) =>
-  z.preprocess(
-    (value) => (typeof value === 'string' ? value : ''),
-    z.string().min(1, { message: `${name} is required.` }),
-  );
+/** Where `mlx_vlm.server` listens by default. */
+const LOCAL_INFERENCE_URL = 'http://127.0.0.1:8080';
 
-const optionalString = () =>
-  z.preprocess(
-    (value) =>
-      typeof value === 'string' && value.length > 0 ? value : undefined,
-    z.string().optional(),
-  );
+export function getDatabaseUrl(raw: RawEnv = process.env) {
+  const override = raw.DATABASE_URL;
 
-const databaseSchema = z.object({
-  DATABASE_URL: requiredString('DATABASE_URL'),
-  TURSO_AUTH_TOKEN: optionalString(),
-});
-
-const systemTestPortSchema = z.coerce.number().int().positive();
-
-function parseDatabaseEnv(raw: RawEnv) {
-  const result = databaseSchema.safeParse(raw);
-
-  if (!result.success) {
-    throw new Error(
-      result.error.issues[0]?.message ?? 'Invalid database environment.',
-    );
+  if (override === undefined || override === '') {
+    return LOCAL_DATABASE_URL;
   }
 
-  return result.data;
+  if (!override.startsWith('file:') && !override.startsWith('sqlite:')) {
+    throw new Error('DATABASE_URL must use file: or sqlite:.');
+  }
+
+  return override;
 }
 
-export function getDatabaseEnvironment(
-  raw: RawEnv = process.env,
-): DatabaseEnvironment {
-  const parsed = parseDatabaseEnv(raw);
-  const isLocal =
-    parsed.DATABASE_URL.startsWith('file:') ||
-    parsed.DATABASE_URL.startsWith('sqlite:');
+export function getInferenceEndpoint(raw: RawEnv = process.env) {
+  const configured = raw.VLM_CHAT_INFERENCE_URL;
 
-  if (isLocal) {
-    if (parsed.TURSO_AUTH_TOKEN) {
-      throw new Error(
-        'TURSO_AUTH_TOKEN must not be set for a local SQLite database.',
-      );
-    }
-
-    return {
-      kind: 'sqlite',
-      databaseUrl: parsed.DATABASE_URL,
-    };
+  if (configured === undefined || configured === '') {
+    return LOCAL_INFERENCE_URL;
   }
 
-  const isTurso =
-    parsed.DATABASE_URL.startsWith('libsql://') ||
-    parsed.DATABASE_URL.startsWith('https://');
+  const endpoint = configured.replace(/\/+$/, '');
 
-  if (!isTurso) {
-    throw new Error(
-      'DATABASE_URL must use file:, sqlite:, libsql://, or https://.',
-    );
+  if (!endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
+    throw new Error('VLM_CHAT_INFERENCE_URL must use http:// or https://.');
   }
 
-  if (!parsed.TURSO_AUTH_TOKEN) {
-    throw new Error('TURSO_AUTH_TOKEN is required for a Turso database.');
-  }
-
-  return {
-    kind: 'turso',
-    databaseUrl: parsed.DATABASE_URL,
-    authToken: parsed.TURSO_AUTH_TOKEN,
-  };
-}
-
-export function getTursoEnvironment(raw: RawEnv = process.env) {
-  const database = getDatabaseEnvironment(raw);
-
-  if (database.kind !== 'turso') {
-    throw new Error('This command requires a Turso DATABASE_URL.');
-  }
-
-  return database;
-}
-
-export function getSystemTestPort(raw: RawEnv = process.env, fallback = 3001) {
-  const value = raw.NEXT_BUN_SYSTEM_TEST_PORT;
-
-  if (value === undefined) {
-    console.warn(`NEXT_BUN_SYSTEM_TEST_PORT is not set. Using ${fallback}.`);
-    return fallback;
-  }
-
-  const parsed = systemTestPortSchema.safeParse(value);
-
-  if (!parsed.success) {
-    throw new Error(
-      `NEXT_BUN_SYSTEM_TEST_PORT must be a positive integer: received "${value}"`,
-    );
-  }
-
-  return parsed.data;
+  return endpoint;
 }

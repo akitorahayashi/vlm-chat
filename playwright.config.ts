@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
-import { getSystemTestPort } from './src/lib/environment.ts';
+import { APP_PORT, STUB_INFERENCE_PORT } from './tests/system/ports.ts';
 
-const systemTestPort = getSystemTestPort();
-const baseURL = `http://localhost:${systemTestPort}`;
+const baseURL = `http://localhost:${APP_PORT}`;
+const stubInferenceUrl = `http://127.0.0.1:${STUB_INFERENCE_PORT}`;
 
 export default defineConfig({
   testDir: './tests/system',
@@ -33,12 +33,24 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
   ],
-  webServer: {
-    command: `bun --bun next dev --webpack --port ${systemTestPort}`,
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  webServer: [
+    {
+      command: 'bun tests/system/fixtures/inference-server.ts',
+      url: `${stubInferenceUrl}/health`,
+      reuseExistingServer: !process.env.CI,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      command: `bun run db:setup && bun --bun next dev --port ${APP_PORT}`,
+      url: baseURL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      // Next does not overwrite a variable that is already in the environment,
+      // so this wins over whatever .env holds.
+      env: { VLM_CHAT_INFERENCE_URL: stubInferenceUrl },
+    },
+  ],
 });

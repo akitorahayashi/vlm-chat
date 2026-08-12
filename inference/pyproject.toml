@@ -1,0 +1,11 @@
+[project]
+name = "vlm-chat-inference"
+version = "0.1.0"
+description = "Pinned mlx-vlm OpenAI-compatible server for vlm-chat. No source code lives here."
+requires-python = ">=3.12,<3.13"
+# Pinned exactly: the SSE framing, the reasoning split and the image flattening
+# the web app is written against are behaviours of this release.
+dependencies = ["mlx-vlm==0.6.12"]
+
+[tool.uv]
+package = false
