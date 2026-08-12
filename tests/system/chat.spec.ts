@@ -47,15 +47,16 @@ test('streams a reply, keeps the URL and survives a reload', async ({
 
 test('lists the conversation and deletes it', async ({ page }) => {
   const consoleErrors = collectConsoleErrors(page);
+  const title = `remember me ${crypto.randomUUID()}`;
 
   await page.goto('/');
-  await send(page, 'stub/echo', 'remember me');
+  await send(page, 'stub/echo', title);
 
-  const entry = page.getByRole('link', { name: 'remember me' });
+  const entry = page.getByRole('link', { name: title, exact: true });
 
   await expect(entry).toBeVisible();
 
-  await page.getByRole('button', { name: 'Delete remember me' }).click();
+  await page.getByRole('button', { name: `Delete ${title}` }).click();
 
   await expect(page).toHaveURL(/\/$/);
   await expect(entry).toHaveCount(0);
