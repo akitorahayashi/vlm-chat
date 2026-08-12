@@ -57,6 +57,13 @@ bun run dev
 The application is available at http://localhost:3000. `bun run dev` applies any
 pending migrations first, so a fresh clone needs nothing else.
 
+The development server runs webpack rather than Turbopack. Turbopack leaves
+`@prisma/client`, `@libsql/client` and `libsql` unbundled — they are in Next's
+own opt-out list — and then emits requires for version-suffixed names such as
+`@prisma/client-2c3a283f134fdcb6/runtime/client`, which exist nowhere on disk.
+Every page that reaches the database answers 500 on a cold `.next`, and it never
+recovers. `next build` is unaffected, so production keeps using Turbopack.
+
 `just` lists everything the inference side can do — `health` and `models` report
 what the server sees, `unload` releases the loaded model, and `ask` checks
 generation without going through the app.

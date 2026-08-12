@@ -46,3 +46,8 @@ from — do not add npm scripts that wrap it.
   message's, so a turn can be stopped before any row exists to name.
 - `prisma/migrations` is now append-only. Its history is the applied baseline;
   the earlier rewrite was safe only because nothing had ever run it.
+- The dev server runs `--webpack`, in `package.json` and in
+  `playwright.config.ts` alike. Turbopack's dev server leaves `@prisma/client`,
+  `@libsql/client` and `libsql` external and then requires version-suffixed
+  names that do not exist, so every database-backed page answers 500 on a cold
+  `.next`. `next build` is unaffected and stays on Turbopack.

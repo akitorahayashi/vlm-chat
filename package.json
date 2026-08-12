@@ -8,7 +8,7 @@
     "bun": ">=1.3.14 <2"
   },
   "scripts": {
-    "dev": "bun run db:setup && bun --bun next dev",
+    "dev": "bun run db:setup && bun --bun next dev --webpack",
     "build": "bun --bun next build",
     "start": "bun --bun next start",
     "postinstall": "bunx --bun prisma generate",

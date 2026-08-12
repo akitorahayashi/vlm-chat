@@ -5,16 +5,20 @@ const baseURL = `http://localhost:${APP_PORT}`;
 const stubInferenceUrl = `http://127.0.0.1:${STUB_INFERENCE_PORT}`;
 
 // The browser tests write conversations through the real application, so they
-// get their own file rather than the development database. `db:setup` runs in
-// the same command and reads the same variable, so migrations land here too.
+// get their own file rather than the development database. `db:reset` runs in
+// the same command and reads the same variable, so it is this file that is
+// dropped and migrated.
 const databaseUrl = 'file:./data/system-test.db';
 
 export default defineConfig({
   testDir: './tests/system',
-  fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // One worker, everywhere. The four browser projects share a single dev server
+  // and a single SQLite file, and `page.goto` resolves on load rather than on
+  // hydration: run them at once and a click or a file selection lands before
+  // React has attached its handler, on whichever project lost the race.
+  workers: 1,
   reporter: process.env.CI ? 'list' : 'html',
   use: {
     baseURL,
@@ -47,7 +51,14 @@ export default defineConfig({
       stderr: 'pipe',
     },
     {
-      command: `bun run db:setup && bun --bun next dev --port ${APP_PORT}`,
+      // db:reset rather than db:setup: the specs name conversations by their
+      // title, so rows left by a previous run make a second run fail on
+      // titles it did not create.
+      //
+      // --webpack for the same reason `bun run dev` uses it: Turbopack's dev server
+      // cannot resolve the Prisma and libsql externals, so every page answers 500
+      // and this server never becomes ready. See the note in README.
+      command: `bun run db:reset && bun --bun next dev --webpack --port ${APP_PORT}`,
       url: baseURL,
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
