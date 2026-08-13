@@ -1,4 +1,7 @@
-import { closeAssistantMessage } from '@/features/message/close';
+import {
+  type AssistantOutcome,
+  closeAssistantMessage,
+} from '@/features/message/close';
 import { isAbortError } from '@/lib/abort-error';
 import type { ChatEvent } from '@/lib/chat-event';
 import { describeInferenceFailure } from '@/lib/inference/failure';
@@ -25,10 +28,7 @@ export async function* runCompletion(input: {
   let finishReason: string | null = null;
   let settled = false;
 
-  const close = (
-    status: 'complete' | 'aborted' | 'failed',
-    errorMessage?: string,
-  ) =>
+  const close = (status: AssistantOutcome, errorMessage?: string) =>
     closeAssistantMessage({
       messageId: input.assistantMessageId,
       content,

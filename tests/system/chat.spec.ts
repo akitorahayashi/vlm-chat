@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   collectConsoleErrors,
   expectNoLayoutOverflow,
+  lastTurn,
   send,
 } from './chat-page';
 
@@ -27,19 +28,17 @@ test('streams a reply, keeps the URL and survives a reload', async ({
 
   await send(page, 'stub/echo', 'say hello');
 
-  const answer = page.locator('article[data-role="assistant"]').last();
-
-  await expect(answer).toContainText('Hello from the stub.');
+  await expect(lastTurn(page, 'assistant')).toContainText(
+    'Hello from the stub.',
+  );
   await expect(page).toHaveURL(/\/conversations\/.+/);
 
   await page.reload();
 
-  await expect(page.locator('article[data-role="user"]').last()).toContainText(
-    'say hello',
+  await expect(lastTurn(page, 'user')).toContainText('say hello');
+  await expect(lastTurn(page, 'assistant')).toContainText(
+    'Hello from the stub.',
   );
-  await expect(
-    page.locator('article[data-role="assistant"]').last(),
-  ).toContainText('Hello from the stub.');
 
   await expectNoLayoutOverflow(page);
   expect(consoleErrors).toEqual([]);

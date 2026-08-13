@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { ConversationSummary } from '@/features/conversation/list';
+import { describeError } from '@/lib/describe-error';
 import { ErrorBanner } from './error-banner';
 
 export function ConversationList({
@@ -22,11 +23,7 @@ export function ConversationList({
     try {
       response = await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
     } catch (cause) {
-      setError(
-        `Could not delete the conversation: ${
-          cause instanceof Error ? cause.message : String(cause)
-        }`,
-      );
+      setError(`Could not delete the conversation: ${describeError(cause)}`);
       return;
     }
 

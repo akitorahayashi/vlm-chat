@@ -1,3 +1,5 @@
+import { modelListBody, sseStream } from '../../fixtures/completion-wire';
+
 export type InferenceStubScript = {
   models?: string[];
   chunks?: string[];
@@ -13,8 +15,7 @@ export type InferenceStubScript = {
  * contract this app depends on, so the route handler can be exercised on a
  * machine that cannot run MLX at all.
  */
-export function startInferenceStub(script: InferenceStubScript = {}) {
-  const encoder = new TextEncoder();
+function startInferenceStub(script: InferenceStubScript = {}) {
   const received: unknown[] = [];
 
   const server = Bun.serve({
@@ -24,14 +25,7 @@ export function startInferenceStub(script: InferenceStubScript = {}) {
       const { pathname } = new URL(request.url);
 
       if (pathname === '/v1/models') {
-        return Response.json({
-          object: 'list',
-          data: (script.models ?? ['stub/model']).map((id) => ({
-            id,
-            object: 'model',
-            created: 0,
-          })),
-        });
+        return Response.json(modelListBody(script.models ?? ['stub/model']));
       }
 
       if (pathname === '/v1/chat/completions') {
@@ -47,27 +41,8 @@ export function startInferenceStub(script: InferenceStubScript = {}) {
           });
         }
 
-        const payloads = script.chunks ?? [];
-        let index = 0;
-
         return new Response(
-          new ReadableStream<Uint8Array>({
-            async pull(controller) {
-              if (index >= payloads.length) {
-                controller.close();
-                return;
-              }
-
-              if (script.delayMs) {
-                await Bun.sleep(script.delayMs);
-              }
-
-              controller.enqueue(
-                encoder.encode(`data: ${payloads[index]}\n\n`),
-              );
-              index += 1;
-            },
-          }),
+          sseStream(script.chunks ?? [], script.delayMs ?? 0),
           { headers: { 'Content-Type': 'text/event-stream' } },
         );
       }

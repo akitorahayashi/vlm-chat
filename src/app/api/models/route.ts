@@ -1,3 +1,4 @@
+import { describeError } from '@/lib/describe-error';
 import { fetchModelIds } from '@/lib/inference/client';
 
 export const dynamic = 'force-dynamic';
@@ -11,9 +12,6 @@ export async function GET(request: Request) {
   try {
     return Response.json({ models: await fetchModelIds(request.signal) });
   } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 502 },
-    );
+    return Response.json({ error: describeError(error) }, { status: 502 });
   }
 }

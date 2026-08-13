@@ -1,4 +1,4 @@
-import { base64ByteSize, parseDataUrl } from './data-url';
+import { parseDataUrl } from './data-url';
 
 const MAX_EDGE = 1024;
 const OUTPUT_MIME = 'image/jpeg' as const;
@@ -13,7 +13,6 @@ export type DraftImage = {
   mimeType: typeof OUTPUT_MIME;
   dataBase64: string;
   dataUrl: string;
-  byteSize: number;
 };
 
 function readAsDataUrl(file: File) {
@@ -74,6 +73,5 @@ export async function downscaleImage(file: File): Promise<DraftImage> {
     mimeType: OUTPUT_MIME,
     dataBase64,
     dataUrl,
-    byteSize: base64ByteSize(dataBase64),
   };
 }

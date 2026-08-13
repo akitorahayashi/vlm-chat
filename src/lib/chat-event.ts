@@ -5,7 +5,7 @@ import { z } from 'zod';
  * It imports nothing but zod so a client component can decode events without
  * pulling Prisma into the bundle.
  */
-export const chatEventSchema = z.discriminatedUnion('type', [
+const chatEventSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('start'),
     conversationId: z.string(),

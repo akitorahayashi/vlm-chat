@@ -1,8 +1,7 @@
 import { prisma } from '@/lib/prisma';
 
-export type TranscriptAttachment = {
+type TranscriptAttachment = {
   id: string;
-  mimeType: string;
 };
 
 export type TranscriptMessage = {
@@ -16,7 +15,7 @@ export type TranscriptMessage = {
   attachments: TranscriptAttachment[];
 };
 
-export type ConversationDetail = {
+type ConversationDetail = {
   id: string;
   title: string;
   modelId: string;
@@ -49,7 +48,7 @@ export async function readConversation(
           modelId: true,
           attachments: {
             orderBy: { position: 'asc' },
-            select: { id: true, mimeType: true },
+            select: { id: true },
           },
         },
       },

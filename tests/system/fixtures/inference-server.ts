@@ -1,3 +1,8 @@
+import {
+  chunk,
+  modelListBody,
+  sseStream,
+} from '../../fixtures/completion-wire.ts';
 import { STUB_INFERENCE_PORT } from '../ports.ts';
 
 /**
@@ -39,38 +44,6 @@ const BEHAVIOURS = {
 
 const SLOW_DELAY_MS = 400;
 
-function chunk(
-  delta: Record<string, string>,
-  finishReason: string | null = null,
-) {
-  return JSON.stringify({
-    id: 'stub',
-    object: 'chat.completion.chunk',
-    choices: [{ index: 0, delta, finish_reason: finishReason }],
-  });
-}
-
-function streamOf(payloads: readonly string[], delayMs: number) {
-  const encoder = new TextEncoder();
-  let index = 0;
-
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      if (index >= payloads.length) {
-        controller.close();
-        return;
-      }
-
-      if (delayMs > 0) {
-        await Bun.sleep(delayMs);
-      }
-
-      controller.enqueue(encoder.encode(`data: ${payloads[index]}\n\n`));
-      index += 1;
-    },
-  });
-}
-
 Bun.serve({
   port: STUB_INFERENCE_PORT,
   hostname: '127.0.0.1',
@@ -82,14 +55,7 @@ Bun.serve({
     }
 
     if (pathname === '/v1/models') {
-      return Response.json({
-        object: 'list',
-        data: Object.keys(BEHAVIOURS).map((id) => ({
-          id,
-          object: 'model',
-          created: 0,
-        })),
-      });
+      return Response.json(modelListBody(Object.keys(BEHAVIOURS)));
     }
 
     if (pathname === '/v1/chat/completions') {
@@ -107,7 +73,7 @@ Bun.serve({
       }
 
       return new Response(
-        streamOf(payloads, model === 'stub/slow' ? SLOW_DELAY_MS : 0),
+        sseStream(payloads, model === 'stub/slow' ? SLOW_DELAY_MS : 0),
         { headers: { 'Content-Type': 'text/event-stream' } },
       );
     }

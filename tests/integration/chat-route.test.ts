@@ -84,6 +84,16 @@ async function cancel(completionId: string) {
   );
 }
 
+function conversationIdOf(events: ChatEvent[]) {
+  const start = events.find((event) => event.type === 'start');
+
+  if (!start) {
+    throw new Error('The chat route sent no start event.');
+  }
+
+  return start.conversationId;
+}
+
 async function readMessages(conversationId: string) {
   const { prisma } = await import('@/lib/prisma');
 
@@ -112,8 +122,7 @@ describe('chat route', () => {
           .join(''),
       ).toBe('Hello');
 
-      const conversationId =
-        start.type === 'start' ? start.conversationId : 'none';
+      const conversationId = conversationIdOf(events);
       const messages = await readMessages(conversationId);
 
       expect(messages).toHaveLength(2);
@@ -138,9 +147,7 @@ describe('chat route', () => {
       const events = await readEvents(
         await post({ modelId: 'stub/model', text: 'colour?' }),
       );
-      const start = events[0];
-      const conversationId =
-        start.type === 'start' ? start.conversationId : 'none';
+      const conversationId = conversationIdOf(events);
       const [, assistant] = await readMessages(conversationId);
 
       expect(assistant.content).toBe('Blue.');
@@ -174,15 +181,12 @@ describe('chat route', () => {
       const events = await readEvents(
         await post({ modelId: 'stub/model', text: 'hi' }),
       );
-      const start = events[0];
-
       expect(events.at(-1)).toEqual({
         type: 'error',
         message: 'the model ran out of memory',
       });
 
-      const conversationId =
-        start.type === 'start' ? start.conversationId : 'none';
+      const conversationId = conversationIdOf(events);
       const [, assistant] = await readMessages(conversationId);
 
       expect(assistant).toMatchObject({
@@ -556,9 +560,7 @@ describe('chat route', () => {
           attachments: [{ mimeType: 'image/png', dataBase64: png }],
         }),
       );
-      const start = first[0];
-      const conversationId =
-        start.type === 'start' ? start.conversationId : 'none';
+      const conversationId = conversationIdOf(first);
 
       await readEvents(
         await post({

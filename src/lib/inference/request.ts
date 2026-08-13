@@ -2,8 +2,8 @@ import type { ChatCompletionBody, CompletionMessage } from './schema';
 
 // Sent explicitly rather than relying on the server's own defaults, which are
 // temperature 0.0 and max_tokens 2048 and are free to move between releases.
-export const DEFAULT_TEMPERATURE = 0.7;
-export const DEFAULT_MAX_TOKENS = 2048;
+const DEFAULT_TEMPERATURE = 0.7;
+const DEFAULT_MAX_TOKENS = 2048;
 
 /**
  * mlx-vlm defaults `seed` to 0, so without a fresh value every identical

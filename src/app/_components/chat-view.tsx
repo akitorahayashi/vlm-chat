@@ -8,6 +8,7 @@ import {
   CompletionRejected,
   openCompletionConnection,
 } from '@/lib/completion-connection';
+import { describeError } from '@/lib/describe-error';
 import { type DraftImage, downscaleImage } from '@/lib/image-downscale';
 import { Composer } from './composer';
 import { ErrorBanner } from './error-banner';
@@ -35,10 +36,6 @@ function toTurn(message: TranscriptMessage): TurnView {
       source: `/api/attachments/${attachment.id}`,
     })),
   };
-}
-
-function describe(cause: unknown) {
-  return cause instanceof Error ? cause.message : String(cause);
 }
 
 export function ChatView({
@@ -87,7 +84,7 @@ export function ChatView({
         }
 
         setModels([]);
-        setError(describe(cause));
+        setError(describeError(cause));
       }
     }
 
@@ -101,24 +98,23 @@ export function ChatView({
   // navigated away from is still worth recording.
   useEffect(() => () => abort.current?.abort(), []);
 
-  function patch(id: string, next: Partial<TurnView>) {
+  function updateTurn(id: string, next: (turn: TurnView) => Partial<TurnView>) {
     setTurns((current) =>
-      current.map((turn) => (turn.id === id ? { ...turn, ...next } : turn)),
+      current.map((turn) =>
+        turn.id === id ? { ...turn, ...next(turn) } : turn,
+      ),
     );
   }
 
+  function patch(id: string, next: Partial<TurnView>) {
+    updateTurn(id, () => next);
+  }
+
   function appendDelta(id: string, content?: string, reasoning?: string) {
-    setTurns((current) =>
-      current.map((turn) =>
-        turn.id === id
-          ? {
-              ...turn,
-              content: turn.content + (content ?? ''),
-              reasoning: turn.reasoning + (reasoning ?? ''),
-            }
-          : turn,
-      ),
-    );
+    updateTurn(id, (turn) => ({
+      content: turn.content + (content ?? ''),
+      reasoning: turn.reasoning + (reasoning ?? ''),
+    }));
   }
 
   async function addFiles(files: File[]) {
@@ -146,7 +142,7 @@ export function ChatView({
     }
 
     if (rejection) {
-      setError(describe(rejection.reason));
+      setError(describeError(rejection.reason));
     }
   }
 
@@ -167,7 +163,7 @@ export function ChatView({
       await fetch(`/api/completions/${completionId}`, { method: 'DELETE' });
     } catch (cause) {
       setError(
-        `The turn was stopped here but may still be running: ${describe(cause)}`,
+        `The turn was stopped here but may still be running: ${describeError(cause)}`,
       );
     }
   }
@@ -273,8 +269,10 @@ export function ChatView({
           startedConversationId = cause.conversationId;
         }
 
-        patch(assistantId, { status: 'failed', errorMessage: describe(cause) });
-        setError(describe(cause));
+        const message = describeError(cause);
+
+        patch(assistantId, { status: 'failed', errorMessage: message });
+        setError(message);
       }
     } finally {
       abort.current = null;
