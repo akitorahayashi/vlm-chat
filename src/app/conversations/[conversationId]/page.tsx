@@ -35,6 +35,7 @@ export default async function Page({
         conversationId={conversation.id}
         messages={conversation.messages}
         modelId={conversation.modelId}
+        initialGeneration={conversation.generation}
       />
     </main>
   );

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { DEFAULT_GENERATION_SETTINGS } from '@/features/completion/generation-settings';
 import { startConversation } from './fixtures/conversation';
 
 const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -20,6 +21,7 @@ describe('attachment route', () => {
     const message = await appendUserMessage({
       conversationId,
       modelId: 'a/b',
+      generation: DEFAULT_GENERATION_SETTINGS,
       text: '',
       attachments: [
         {

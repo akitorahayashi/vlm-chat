@@ -1,3 +1,4 @@
+import type { GenerationSettings } from '@/features/completion/generation-settings';
 import { prisma } from '@/lib/prisma';
 import { nextSequence } from './next-sequence';
 
@@ -9,6 +10,7 @@ import { nextSequence } from './next-sequence';
 export async function appendUserMessage(input: {
   conversationId: string;
   modelId: string;
+  generation: GenerationSettings;
   text: string;
   attachments: { mimeType: string; dataBase64: string }[];
 }) {
@@ -17,7 +19,7 @@ export async function appendUserMessage(input: {
 
     await tx.conversation.update({
       where: { id: input.conversationId },
-      data: { modelId: input.modelId },
+      data: { modelId: input.modelId, ...input.generation },
     });
 
     return tx.message.create({

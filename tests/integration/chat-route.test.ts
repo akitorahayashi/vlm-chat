@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { DEFAULT_GENERATION_SETTINGS } from '@/features/completion/generation-settings';
 import type { ChatEvent } from '@/lib/chat-event';
 import {
   contentOnlyStream,
@@ -25,7 +26,11 @@ async function post(body: Record<string, unknown>, signal?: AbortSignal) {
     new Request('http://localhost/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ completionId: nextCompletionId(), ...body }),
+      body: JSON.stringify({
+        completionId: nextCompletionId(),
+        generation: DEFAULT_GENERATION_SETTINGS,
+        ...body,
+      }),
       signal,
     }),
   );
@@ -169,6 +174,68 @@ describe('chat route', () => {
         model: 'stub/model',
         stream: true,
       });
+    } finally {
+      stub.stop();
+    }
+  });
+
+  it('forwards and records the selected generation settings', async () => {
+    const stub = useInferenceStub({ chunks: contentOnlyStream });
+    const generation = {
+      temperature: 1.25,
+      maxTokens: 512,
+      topP: 0.8,
+      repetitionPenalty: 1.15,
+    };
+
+    try {
+      const events = await readEvents(
+        await post({ modelId: 'stub/model', text: 'tune it', generation }),
+      );
+      const conversationId = conversationIdOf(events);
+      const { prisma } = await import('@/lib/prisma');
+      const conversation = await prisma.conversation.findUniqueOrThrow({
+        where: { id: conversationId },
+      });
+      const assistant = await prisma.message.findFirstOrThrow({
+        where: { conversationId, role: 'assistant' },
+      });
+
+      expect(stub.received[0]).toMatchObject({
+        temperature: 1.25,
+        max_tokens: 512,
+        top_p: 0.8,
+        repetition_penalty: 1.15,
+      });
+      expect(conversation).toMatchObject(generation);
+      expect(assistant).toMatchObject(generation);
+      expect(assistant.seed).toBeGreaterThanOrEqual(0);
+    } finally {
+      stub.stop();
+    }
+  });
+
+  it('rejects unsupported generation settings before writing or generating', async () => {
+    const stub = useInferenceStub({ chunks: contentOnlyStream });
+    const { prisma } = await import('@/lib/prisma');
+    const before = await prisma.conversation.count();
+
+    try {
+      const response = await post({
+        modelId: 'stub/model',
+        text: 'too hot',
+        generation: {
+          ...DEFAULT_GENERATION_SETTINGS,
+          temperature: 2.01,
+        },
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({
+        error: 'Temperature must be between 0 and 2.',
+      });
+      expect(await prisma.conversation.count()).toBe(before);
+      expect(stub.received).toHaveLength(0);
     } finally {
       stub.stop();
     }

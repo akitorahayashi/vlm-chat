@@ -1,9 +1,5 @@
+import type { GenerationSettings } from '@/features/completion/generation-settings';
 import type { ChatCompletionBody, CompletionMessage } from './schema';
-
-// Sent explicitly rather than relying on the server's own defaults, which are
-// temperature 0.0 and max_tokens 2048 and are free to move between releases.
-const DEFAULT_TEMPERATURE = 0.7;
-const DEFAULT_MAX_TOKENS = 2048;
 
 /**
  * mlx-vlm defaults `seed` to 0, so without a fresh value every identical
@@ -24,13 +20,16 @@ export function buildChatCompletionRequest(input: {
   modelId: string;
   messages: CompletionMessage[];
   seed: number;
+  generation: GenerationSettings;
 }): ChatCompletionBody {
   return {
     model: input.modelId,
     messages: input.messages,
     stream: true,
     seed: input.seed,
-    temperature: DEFAULT_TEMPERATURE,
-    max_tokens: DEFAULT_MAX_TOKENS,
+    temperature: input.generation.temperature,
+    max_tokens: input.generation.maxTokens,
+    top_p: input.generation.topP,
+    repetition_penalty: input.generation.repetitionPenalty,
   };
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { base64ByteSize } from '@/lib/data-url';
+import { generationSettingsSchema } from './generation-settings';
 
 export const ALLOWED_MIME_TYPES = [
   'image/png',
@@ -46,6 +47,7 @@ export const completionRequestSchema = z
     }),
     conversationId: z.string().min(1).optional(),
     modelId: z.string().min(1, { message: 'modelId is required.' }),
+    generation: generationSettingsSchema,
     text: z.string().default(''),
     attachments: z
       .array(attachmentSchema)

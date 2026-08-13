@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     conversationId: parsed.conversationId,
     modelId: parsed.modelId,
     title: deriveConversationTitle(parsed.text, parsed.attachments.length),
+    generation: parsed.generation,
   });
 
   if (!conversation) {
@@ -86,6 +87,7 @@ export async function POST(request: Request) {
     const userMessage = await appendUserMessage({
       conversationId: conversation.id,
       modelId: parsed.modelId,
+      generation: parsed.generation,
       text: parsed.text,
       attachments: parsed.attachments,
     });
@@ -97,6 +99,7 @@ export async function POST(request: Request) {
         await readCompletionHistory(conversation.id),
       ),
       seed,
+      generation: parsed.generation,
     });
 
     const endpoint = getInferenceEndpoint();
@@ -123,6 +126,7 @@ export async function POST(request: Request) {
         conversationId: conversation.id,
         modelId: parsed.modelId,
         seed,
+        generation: parsed.generation,
       });
     } catch (error) {
       // The server is already generating and nothing downstream will ever read

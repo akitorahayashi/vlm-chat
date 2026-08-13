@@ -1,3 +1,4 @@
+import type { GenerationSettings } from '@/features/completion/generation-settings';
 import { prisma } from '@/lib/prisma';
 
 type TranscriptAttachment = {
@@ -19,6 +20,7 @@ type ConversationDetail = {
   id: string;
   title: string;
   modelId: string;
+  generation: GenerationSettings;
   messages: TranscriptMessage[];
 };
 
@@ -30,12 +32,16 @@ type ConversationDetail = {
 export async function readConversation(
   conversationId: string,
 ): Promise<ConversationDetail | null> {
-  return prisma.conversation.findUnique({
+  const conversation = await prisma.conversation.findUnique({
     where: { id: conversationId },
     select: {
       id: true,
       title: true,
       modelId: true,
+      temperature: true,
+      maxTokens: true,
+      topP: true,
+      repetitionPenalty: true,
       messages: {
         orderBy: { sequence: 'asc' },
         select: {
@@ -54,4 +60,21 @@ export async function readConversation(
       },
     },
   });
+
+  if (conversation === null) {
+    return null;
+  }
+
+  return {
+    id: conversation.id,
+    title: conversation.title,
+    modelId: conversation.modelId,
+    generation: {
+      temperature: conversation.temperature,
+      maxTokens: conversation.maxTokens,
+      topP: conversation.topP,
+      repetitionPenalty: conversation.repetitionPenalty,
+    },
+    messages: conversation.messages,
+  };
 }

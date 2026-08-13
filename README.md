@@ -98,6 +98,13 @@ own message is shown.
 Only one model stays loaded. Choosing a different one unloads the previous one,
 so switching mid-conversation costs a reload.
 
+Generation settings are kept per conversation. Temperature defaults to 0.7,
+maximum output length to 2048 tokens, Top P to 1, and repetition penalty to 1.
+The settings panel constrains each value to the range supported by this client,
+and every request is checked again by the server before anything is stored or
+sent to the inference process. The settings used for a reply are stored with
+that assistant turn alongside its seed.
+
 Images are sent for the newest turn only. The server collects images from every
 user message, flattens them into one list, and hands the count to the chat
 template, which then places that many image tokens by its own rule — so

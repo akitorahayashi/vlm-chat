@@ -1,0 +1,9 @@
+ALTER TABLE "Conversation" ADD COLUMN "temperature" REAL NOT NULL DEFAULT 0.7;
+ALTER TABLE "Conversation" ADD COLUMN "maxTokens" INTEGER NOT NULL DEFAULT 2048;
+ALTER TABLE "Conversation" ADD COLUMN "topP" REAL NOT NULL DEFAULT 1.0;
+ALTER TABLE "Conversation" ADD COLUMN "repetitionPenalty" REAL NOT NULL DEFAULT 1.0;
+
+ALTER TABLE "Message" ADD COLUMN "temperature" REAL;
+ALTER TABLE "Message" ADD COLUMN "maxTokens" INTEGER;
+ALTER TABLE "Message" ADD COLUMN "topP" REAL;
+ALTER TABLE "Message" ADD COLUMN "repetitionPenalty" REAL;

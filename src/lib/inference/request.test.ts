@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { DEFAULT_GENERATION_SETTINGS } from '@/features/completion/generation-settings';
 import { buildChatCompletionRequest, drawSeed } from './request';
 
 const messages = [{ role: 'user' as const, content: 'hello' }];
@@ -9,6 +10,7 @@ describe('building a chat completion request', () => {
       modelId: 'mlx-community/Example-4bit',
       messages,
       seed: 7,
+      generation: DEFAULT_GENERATION_SETTINGS,
     });
 
     expect(body.model).toBe('mlx-community/Example-4bit');
@@ -21,11 +23,21 @@ describe('building a chat completion request', () => {
       modelId: 'm',
       messages,
       seed: 7,
+      generation: {
+        temperature: 1.25,
+        maxTokens: 512,
+        topP: 0.8,
+        repetitionPenalty: 1.15,
+      },
     });
 
-    expect(body.temperature).toBeGreaterThan(0);
-    expect(body.max_tokens).toBeGreaterThan(0);
-    expect(body.seed).toBe(7);
+    expect(body).toMatchObject({
+      seed: 7,
+      temperature: 1.25,
+      max_tokens: 512,
+      top_p: 0.8,
+      repetition_penalty: 1.15,
+    });
   });
 
   it('does not send enable_thinking', () => {
@@ -33,6 +45,7 @@ describe('building a chat completion request', () => {
       modelId: 'm',
       messages,
       seed: 7,
+      generation: DEFAULT_GENERATION_SETTINGS,
     });
 
     expect(Object.keys(body)).not.toContain('enable_thinking');

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { DEFAULT_GENERATION_SETTINGS } from '@/features/completion/generation-settings';
 import { startConversation } from './fixtures/conversation';
 
 const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff, 0x0d, 0x1a]);
@@ -15,6 +16,7 @@ describe('conversation database', () => {
     const message = await appendUserMessage({
       conversationId,
       modelId: 'a/b',
+      generation: DEFAULT_GENERATION_SETTINGS,
       text: 'look',
       attachments: [{ mimeType: 'image/png', dataBase64: pngBase64 }],
     });
@@ -39,13 +41,20 @@ describe('conversation database', () => {
     await appendUserMessage({
       conversationId,
       modelId: 'a/b',
+      generation: DEFAULT_GENERATION_SETTINGS,
       text: 'first',
       attachments: [],
     });
-    await startAssistantMessage({ conversationId, modelId: 'a/b', seed: 1 });
+    await startAssistantMessage({
+      conversationId,
+      modelId: 'a/b',
+      seed: 1,
+      generation: DEFAULT_GENERATION_SETTINGS,
+    });
     await appendUserMessage({
       conversationId,
       modelId: 'a/b',
+      generation: DEFAULT_GENERATION_SETTINGS,
       text: 'second',
       attachments: [],
     });
@@ -78,6 +87,7 @@ describe('conversation database', () => {
     await appendUserMessage({
       conversationId: older,
       modelId: 'a/b',
+      generation: DEFAULT_GENERATION_SETTINGS,
       text: 'revived',
       attachments: [],
     });
@@ -103,6 +113,7 @@ describe('conversation database', () => {
     await appendUserMessage({
       conversationId,
       modelId: 'second/model',
+      generation: DEFAULT_GENERATION_SETTINGS,
       text: 'switched',
       attachments: [],
     });
@@ -125,6 +136,7 @@ describe('conversation database', () => {
     const message = await appendUserMessage({
       conversationId,
       modelId: 'a/b',
+      generation: DEFAULT_GENERATION_SETTINGS,
       text: 'doomed',
       attachments: [{ mimeType: 'image/png', dataBase64: pngBase64 }],
     });
@@ -147,6 +159,7 @@ describe('conversation database', () => {
         conversationId: 'missing',
         modelId: 'a/b',
         title: 'ignored',
+        generation: DEFAULT_GENERATION_SETTINGS,
       }),
     ).toBeNull();
   });

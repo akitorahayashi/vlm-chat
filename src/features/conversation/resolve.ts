@@ -1,3 +1,4 @@
+import type { GenerationSettings } from '@/features/completion/generation-settings';
 import { prisma } from '@/lib/prisma';
 
 /**
@@ -9,10 +10,15 @@ export async function resolveConversation(input: {
   conversationId?: string;
   modelId: string;
   title: string;
+  generation: GenerationSettings;
 }) {
   if (!input.conversationId) {
     return prisma.conversation.create({
-      data: { modelId: input.modelId, title: input.title },
+      data: {
+        modelId: input.modelId,
+        title: input.title,
+        ...input.generation,
+      },
       select: { id: true },
     });
   }
