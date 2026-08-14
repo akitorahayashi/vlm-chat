@@ -2,6 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import {
+  type GenerationSettings as GenerationSettingsValue,
+  generationSettingsSchema,
+} from '@/features/completion/generation-settings';
 import { MAX_ATTACHMENTS } from '@/features/completion/parse';
 import type { TranscriptMessage } from '@/features/conversation/read';
 import {
@@ -12,6 +16,7 @@ import { describeError } from '@/lib/describe-error';
 import { type DraftImage, downscaleImage } from '@/lib/image-downscale';
 import { Composer } from './composer';
 import { ErrorBanner } from './error-banner';
+import { GenerationSettings } from './generation-settings';
 import { ModelPicker } from './model-picker';
 import { Transcript } from './transcript';
 import type { TurnView } from './turn';
@@ -42,10 +47,12 @@ export function ChatView({
   conversationId,
   messages,
   modelId,
+  initialGeneration,
 }: {
   conversationId: string | null;
   messages: TranscriptMessage[];
   modelId: string | null;
+  initialGeneration: GenerationSettingsValue;
 }) {
   const router = useRouter();
   const [turns, setTurns] = useState<TurnView[]>(() => messages.map(toTurn));
@@ -53,6 +60,7 @@ export function ChatView({
   const [images, setImages] = useState<DraftImage[]>([]);
   const [models, setModels] = useState<string[] | null>(null);
   const [selectedModel, setSelectedModel] = useState(modelId);
+  const [generation, setGeneration] = useState(initialGeneration);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -170,10 +178,17 @@ export function ChatView({
 
   async function send() {
     const text = draft.trim();
+    const validatedGeneration = generationSettingsSchema.safeParse(generation);
 
-    if (!selectedModel || streamingId !== null) {
+    if (
+      !selectedModel ||
+      streamingId !== null ||
+      !validatedGeneration.success
+    ) {
       return;
     }
+
+    const generationSnapshot = validatedGeneration.data;
 
     const attachments = images.map(({ mimeType, dataBase64 }) => ({
       mimeType,
@@ -227,6 +242,7 @@ export function ChatView({
           completionId,
           conversationId: conversationId ?? undefined,
           modelId: selectedModel,
+          generation: generationSnapshot,
           text,
           attachments,
         },
@@ -291,6 +307,7 @@ export function ChatView({
   const canSend =
     selectedModel !== null &&
     streamingId === null &&
+    generationSettingsSchema.safeParse(generation).success &&
     (draft.trim().length > 0 || images.length > 0);
 
   // min-w-0 on the section is load-bearing: a flex child defaults to
@@ -298,7 +315,7 @@ export function ChatView({
   // narrow screen and the composer spills over the send button.
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-zinc-200 px-1 dark:border-zinc-800">
+      <header className="relative z-10 flex h-14 shrink-0 items-center gap-4 border-b border-zinc-200 px-1 dark:border-zinc-800">
         <ModelPicker
           models={models}
           value={selectedModel}
@@ -310,6 +327,11 @@ export function ChatView({
 
             setSelectedModel(next);
           }}
+        />
+        <GenerationSettings
+          value={generation}
+          disabled={streamingId !== null}
+          onChange={setGeneration}
         />
       </header>
 

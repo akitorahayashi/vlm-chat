@@ -7,11 +7,18 @@ test('stops a running stream and records the interruption', async ({
   const consoleErrors = collectConsoleErrors(page);
 
   await page.goto('/');
+  await page.getByText('Generation settings', { exact: true }).click();
   await send(page, 'stub/slow', 'count slowly');
 
   const answer = lastTurn(page, 'assistant');
 
   await expect(answer).toContainText('one');
+  await expect(
+    page.getByRole('slider', { name: 'Temperature' }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'Reset to defaults' }),
+  ).toBeDisabled();
 
   await page.getByRole('button', { name: 'Stop' }).click();
 

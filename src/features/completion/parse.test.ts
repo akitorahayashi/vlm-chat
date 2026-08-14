@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { DEFAULT_GENERATION_SETTINGS } from './generation-settings';
 import { parseCompletionRequest } from './parse';
 
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString('base64');
@@ -7,6 +8,7 @@ function request(overrides: Record<string, unknown> = {}) {
   return {
     completionId: 'c1',
     modelId: 'a/b',
+    generation: DEFAULT_GENERATION_SETTINGS,
     text: 'hello',
     ...overrides,
   };
@@ -17,6 +19,7 @@ describe('parsing a completion request', () => {
     expect(parseCompletionRequest(request())).toEqual({
       completionId: 'c1',
       modelId: 'a/b',
+      generation: DEFAULT_GENERATION_SETTINGS,
       text: 'hello',
       attachments: [],
     });
@@ -36,6 +39,12 @@ describe('parsing a completion request', () => {
     expect(() => parseCompletionRequest(request({ modelId: '' }))).toThrow(
       'modelId is required.',
     );
+  });
+
+  it('requires generation settings', () => {
+    expect(() =>
+      parseCompletionRequest(request({ generation: undefined })),
+    ).toThrow();
   });
 
   it('requires text or an image', () => {

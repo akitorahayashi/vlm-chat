@@ -1,4 +1,5 @@
 import { connection } from 'next/server';
+import { DEFAULT_GENERATION_SETTINGS } from '@/features/completion/generation-settings';
 import { listConversations } from '@/features/conversation/list';
 import { ChatView } from './_components/chat-view';
 import { ConversationList } from './_components/conversation-list';
@@ -13,7 +14,12 @@ export default async function Page() {
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row md:gap-6">
       <ConversationList conversations={conversations} activeId={null} />
-      <ChatView conversationId={null} messages={[]} modelId={null} />
+      <ChatView
+        conversationId={null}
+        messages={[]}
+        modelId={null}
+        initialGeneration={DEFAULT_GENERATION_SETTINGS}
+      />
     </main>
   );
 }

@@ -17,6 +17,8 @@ export type ChatCompletionBody = {
   seed: number;
   temperature: number;
   max_tokens: number;
+  top_p: number;
+  repetition_penalty: number;
 };
 
 /**
